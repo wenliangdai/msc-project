@@ -16,7 +16,7 @@ import torchvision.transforms as standard_transforms
 import transforms as extended_transforms
 from loss import prediction_stat, prediction_stat_confusion_matrix
 from main import get_data_path
-from main.loader import get_loader, pascalVOCLoader
+from main.loader import get_loader
 from main.models import get_model
 from utils import dotdict
 
@@ -24,7 +24,7 @@ torch.set_printoptions(threshold=1e5)
 
 args = dotdict({
     'arch': 'sunet64',
-    'batch_size': 22,
+    'batch_size': 10,
     'dataset': 'sbd',
     'freeze': False,
     'img_cols': 512,
@@ -32,6 +32,7 @@ args = dotdict({
     'iter_size': 1,
     'lr': 0.0002*10,
     'log_size': 400,
+    'epoch_log_size': 10,
     'manual_seed': 0,
     'model_path': None,
     'momentum': 0.95,
@@ -79,9 +80,9 @@ def main(args):
     target_transform = extended_transforms.MaskToTensor()
 
     traindata = data_loader('train', transform=input_transform, target_transform=target_transform, do_transform=True)
-    trainloader = data.DataLoader(traindata, batch_size=args.batch_size, num_workers=7, shuffle=True)
+    trainloader = data.DataLoader(traindata, batch_size=args.batch_size, num_workers=1, shuffle=True)
     valdata = data_loader('train', transform=input_transform, target_transform=target_transform)
-    valloader = data.DataLoader(valdata, batch_size=args.batch_size, num_workers=7, shuffle=False)
+    valloader = data.DataLoader(valdata, batch_size=args.batch_size, num_workers=1, shuffle=False)
 
     n_classes = traindata.n_classes
     n_trainsamples = len(traindata)
@@ -171,6 +172,7 @@ def main(args):
 
     print('='*10, 'Entering epoch loop', '='*10, '\n')
     for epoch in range(epochs_done, args.epochs):
+        print('='*10, 'Epoch %d' % (epoch + 1), '='*10)
         l_avg = 0
         totalclasswise_pixel_acc = 0
         totalclasswise_gtpixels = 0
@@ -296,19 +298,20 @@ def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
         totalclasswise_gtpixels += classwise_gtpixels.sum(0).data.cpu().numpy()
         totalclasswise_predpixels += classwise_predpixels.sum(0).data.cpu().numpy()
 
-        print("Epoch [%d/%d] Loss: %.4f" % (epoch + 1, args.epochs, loss.sum().item()))
+        if (i + 1) % args.epoch_log_size == 0:
+            print("Epoch [%d/%d] Loss: %.4f" % (epoch + 1, args.epochs, loss.sum().item()))
 
         if (i + 1) % args.iter_size == 0:
             scheduler.step()
 
         if (i + 1) % args.log_size == 0:
-            pickle.dump(images[0].numpy(),
+            pickle.dump(images[0].cpu().numpy(),
                         open("./results/saved_train_images/" + str(epoch) + "_" + str(i) + "_input.p", "wb"))
 
             pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0)), [2, 0, 1]),
                         open("./results/saved_train_images/" + str(epoch) + "_" + str(i) + "_output.p", "wb"))
 
-            pickle.dump(np.transpose(data.decode_segmap(labels[0].numpy()), [2, 0, 1]),
+            pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy()), [2, 0, 1]),
                         open("./results/saved_train_images/" + str(epoch) + "_" + str(i) + "_target.p", "wb"))
 
 def val(model, criterion, valloader, epoch, data):
@@ -342,13 +345,13 @@ def val(model, criterion, valloader, epoch, data):
         totalclasswise_predpixels_test += classwise_predpixels.sum(0).data.cpu().numpy()
 
         if (i + 1) % 50 == 0:
-            pickle.dump(images[0].numpy(),
+            pickle.dump(images[0].cpu().numpy(),
                         open("./results/saved_val_images/" + str(epoch) + "_" + str(i) + "_input.p", "wb"))
 
             pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0)), [2, 0, 1]),
                         open("./results/saved_val_images/" + str(epoch) + "_" + str(i) + "_output.p", "wb"))
 
-            pickle.dump(np.transpose(data.decode_segmap(labels[0].numpy()), [2, 0, 1]),
+            pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy()), [2, 0, 1]),
                         open("./results/saved_val_images/" + str(epoch) + "_" + str(i) + "_target.p", "wb"))
 
     

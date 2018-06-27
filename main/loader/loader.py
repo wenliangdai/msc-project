@@ -125,11 +125,39 @@ class VOC(data.Dataset):
         
         return img, mask
 
+    def decode_segmap(self, temp, plot=False):
+        label_colours = self.get_pascal_labels()
+        r = temp.copy()
+        g = temp.copy()
+        b = temp.copy()
+        for l in range(0, self.n_classes):
+            r[temp == l] = label_colours[l, 0]
+            g[temp == l] = label_colours[l, 1]
+            b[temp == l] = label_colours[l, 2]
+
+        rgb = np.zeros((temp.shape[0], temp.shape[1], 3))
+        rgb[:, :, 0] = r
+        rgb[:, :, 1] = g
+        rgb[:, :, 2] = b
+        if plot:
+            plt.imshow(rgb)
+            plt.show()
+        else:
+            return rgb
+
+    def get_pascal_labels(self):
+        # 21 classes
+        return np.asarray([[0,0,0], [128,0,0], [0,128,0], [128,128,0], [0,0,128], [128,0,128],
+                              [0,128,128], [128,128,128], [64,0,0], [192,0,0], [64,128,0], [192,128,0],
+                              [64,0,128], [192,0,128], [64,128,128], [192,128,128], [0, 64,0], [128, 64, 0],
+                              [0,192,0], [128,192,0], [0,64,128]])
+
     def preprocess(self, mode):
         assert mode in ['train', 'val', 'test']
         items = []
         sbd_path = get_data_path('sbd')
         voc_path = get_data_path('pascal')
+        voc_test_path = get_data_path('pascal_test')
         
         # Train with SBD training data
         if mode == 'train':
@@ -150,7 +178,7 @@ class VOC(data.Dataset):
                 item = (os.path.join(img_path, it + '.jpg'), os.path.join(mask_path, it + '.png'))
                 items.append(item)
         else:
-            img_path = os.path.join(voc_path, 'JPEGImages')
+            img_path = os.path.join(voc_test_path, 'JPEGImages')
             data_list = [l.strip('\n') for l in open(os.path.join(
                 voc_path, 'ImageSets', 'Segmentation', 'test.txt')).readlines()]
             for it in data_list:
