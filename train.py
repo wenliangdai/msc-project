@@ -20,6 +20,8 @@ from main.loader import get_loader
 from main.models import get_model
 from utils import dotdict
 
+ROOT_ADDRESS = '/home/wenlidai/sunets-reproduce/'
+
 torch.set_printoptions(threshold=1e5)
 
 args = dotdict({
@@ -34,19 +36,17 @@ args = dotdict({
     'log_size': 400,
     'epoch_log_size': 10,
     'manual_seed': 0,
-    'model_path': None,
+    'model_path': os.path.join(ROOT_ADDRESS, 'results', 'sunet64_sbd_60.pkl'),
     'momentum': 0.95,
     'epochs': 90,
     'optim': 'SGD',
     'output_stride': '16',
-    'restore': False,
+    'restore': True,
     'split': 'train_aug',
     'weight_decay': 0.0001
 })
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-ROOT_ADDRESS = '/home/wenlidai/sunets-reproduce/'
 
 def main(args):
     print('='*10, 'Starting', '='*10, '\n')
