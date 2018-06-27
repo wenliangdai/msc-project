@@ -1,21 +1,23 @@
 from os import listdir
+import os
 import argparse
 import numpy as np
 import visdom
 import pickle
 import time
 
+ROOT_ADDRESS = '/home/wenlidai/sunets-reproduce/'
 
 def main(args):
     vis = visdom.Visdom(port=6008)
 
-    losses = pickle.load( open( "results/saved_loss.p", "rb" ) )
+    losses = pickle.load( open( os.path.join(ROOT_ADDRESS, "results/saved_loss.p"), "rb" ) )
     x=np.squeeze(np.asarray(losses["X"]))
     l=np.squeeze(np.asarray(losses["Y"]))
     ltest=np.squeeze(np.asarray(losses["Y_test"]))
     vis.line(np.vstack((l,ltest)).T, x, env='loss_acc', opts=dict(title="Loss"))
 
-    accuracy = pickle.load( open( "results/saved_accuracy.p", "rb" ) )
+    accuracy = pickle.load( open( os.path.join(ROOT_ADDRESS, "results/saved_accuracy.p"), "rb" ) )
     x=np.squeeze(np.asarray(accuracy["X"]))
     P = accuracy["P"]
     M = accuracy["M"]
@@ -28,11 +30,11 @@ def main(args):
     vis.line(np.vstack((I.T, Itest.T)).T, x, env='IoU', opts=dict(title="Mean IoU"))
 
     if args.images:
-        onlyfiles = [f for f in listdir('./results/saved_val_images')]
+        onlyfiles = [f for f in listdir(os.path.join(ROOT_ADDRESS, 'results/saved_val_images'))]
         onlyfiles.sort()
         for f in onlyfiles:
             if f.endswith('.p'):
-                image = pickle.load( open( "results/saved_val_images/"+f, "rb" ) )
+                image = pickle.load( open( os.path.join(ROOT_ADDRESS, "results/saved_val_images/", f), "rb" ) )
                 if len(image.shape) == 4:
                     vis.image(image[0], env='images', opts=dict(title=f))
                 else:

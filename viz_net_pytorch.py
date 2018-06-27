@@ -1,5 +1,5 @@
 from graphviz import Digraph
-from ptsemseg.models import *
+from main.models import *
 
 # Code to view the graph of a network
 def make_dot(var, params):
