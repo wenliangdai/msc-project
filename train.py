@@ -46,6 +46,8 @@ args = dotdict({
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+ROOT_ADDRESS = '/home/wenlidai/sunets-reproduce/'
+
 def main(args):
     print('='*10, 'Starting', '='*10, '\n')
 
@@ -58,10 +60,10 @@ def main(args):
         cudnn.benchmark = True
     
     # Set up results folder
-    if not os.path.exists('./results/saved_val_images'):
-        os.makedirs('./results/saved_val_images')
-    if not os.path.exists('./results/saved_train_images'):
-        os.makedirs('./results/saved_train_images')
+    if not os.path.exists(os.path.join(ROOT_ADDRESS, 'results/saved_val_images')):
+        os.makedirs(os.path.join(ROOT_ADDRESS, 'results/saved_val_images'))
+    if not os.path.exists(os.path.join(ROOT_ADDRESS, 'results/saved_train_images')):
+        os.makedirs(os.path.join(ROOT_ADDRESS, 'results/saved_train_images'))
 
     # Setup Dataloader
     data_loader = get_loader(args.dataset)
@@ -110,8 +112,8 @@ def main(args):
         model.load_state_dict(checkpoint['state_dict'])
         split_str = model_name[0].split('_')
         epochs_done = int(split_str[-1])
-        saved_loss = pickle.load( open("results/saved_loss.p", "rb") )
-        saved_accuracy = pickle.load( open("results/saved_accuracy.p", "rb") )
+        saved_loss = pickle.load( open(os.path.join(ROOT_ADDRESS, "results/saved_loss.p"), "rb") )
+        saved_accuracy = pickle.load( open(os.path.join(ROOT_ADDRESS, "results/saved_accuracy.p"), "rb") )
         X=saved_loss["X"][:epochs_done]
         Y=saved_loss["Y"][:epochs_done]
         Y_test=saved_loss["Y_test"][:epochs_done]
@@ -189,22 +191,22 @@ def main(args):
 
         # save the model every 10 epochs
         if (epoch + 1) % 10 == 0 or epoch == args.epochs - 1:
-            torch.save(model, "./results/{}_{}_{}.pkl".format(args.arch, args.dataset, epoch + 1))
+            torch.save(model, os.path.join(ROOT_ADDRESS, "results/{}_{}_{}.pkl".format(args.arch, args.dataset, epoch + 1)))
             torch.save({'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict()},
-                       "./results/{}_{}_{}_optimizer.pkl".format(args.arch, args.dataset, epoch + 1))
+                       os.path.join(ROOT_ADDRESS, "results/{}_{}_{}_optimizer.pkl".format(args.arch, args.dataset, epoch + 1)))
         
         # remove old loss & accuracy files
-        if os.path.isfile("./results/saved_loss.p"):
-            os.remove("./results/saved_loss.p")
-        if os.path.isfile("./results/saved_accuracy.p"):
-            os.remove("./results/saved_accuracy.p")
+        if os.path.isfile(os.path.join(ROOT_ADDRESS, "results/saved_loss.p")):
+            os.remove(os.path.join(ROOT_ADDRESS, "results/saved_loss.p"))
+        if os.path.isfile(os.path.join(ROOT_ADDRESS, "results/saved_accuracy.p")):
+            os.remove(os.path.join(ROOT_ADDRESS, "results/saved_accuracy.p"))
 
         # saving train and validation loss
         X.append(epoch + 1)
         Y.append(l_avg / steps)
         Y_test.append(l_avg_test / steps_test)
         saved_loss={"X": X, "Y": Y, "Y_test": Y_test}
-        pickle.dump(saved_loss, open("results/saved_loss.p", "wb"))
+        pickle.dump(saved_loss, open(os.path.join(ROOT_ADDRESS, "results/saved_loss.p"), "wb"))
         
         # pixel accuracy
         totalclasswise_pixel_acc = totalclasswise_pixel_acc.reshape((-1, n_classes)).astype(np.float32)
@@ -233,7 +235,7 @@ def main(args):
 
         saved_accuracy = {"X": X, "P": avg_pixel_acc, "M": mean_class_acc, "I": mIoU,
                           "P_test": avg_pixel_acc_test, "M_test": mean_class_acc_test, "I_test": mIoU_test}
-        pickle.dump(saved_accuracy, open("results/saved_accuracy.p", "wb"))
+        pickle.dump(saved_accuracy, open(os.path.join(ROOT_ADDRESS, "results/saved_accuracy.p"), "wb"))
 
 
 # Incase one want to freeze BN params
@@ -306,13 +308,13 @@ def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
 
         if (i + 1) % args.log_size == 0:
             pickle.dump(images[0].cpu().numpy(),
-                        open("./results/saved_train_images/" + str(epoch) + "_" + str(i) + "_input.p", "wb"))
+                        open(os.path.join(ROOT_ADDRESS, "results/saved_train_images/" + str(epoch) + "_" + str(i) + "_input.p"), "wb"))
 
             pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0)), [2, 0, 1]),
-                        open("./results/saved_train_images/" + str(epoch) + "_" + str(i) + "_output.p", "wb"))
+                        open(os.path.join(ROOT_ADDRESS, "results/saved_train_images/" + str(epoch) + "_" + str(i) + "_output.p"), "wb"))
 
             pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy()), [2, 0, 1]),
-                        open("./results/saved_train_images/" + str(epoch) + "_" + str(i) + "_target.p", "wb"))
+                        open(os.path.join(ROOT_ADDRESS, "results/saved_train_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
 
 def val(model, criterion, valloader, epoch, data):
     print('='*10, 'Validate step', '='*10, '\n')
@@ -346,13 +348,13 @@ def val(model, criterion, valloader, epoch, data):
 
         if (i + 1) % 50 == 0:
             pickle.dump(images[0].cpu().numpy(),
-                        open("./results/saved_val_images/" + str(epoch) + "_" + str(i) + "_input.p", "wb"))
+                        open(os.path.join(ROOT_ADDRESS, "results/saved_val_images/" + str(epoch) + "_" + str(i) + "_input.p"), "wb"))
 
             pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0)), [2, 0, 1]),
-                        open("./results/saved_val_images/" + str(epoch) + "_" + str(i) + "_output.p", "wb"))
+                        open(os.path.join(ROOT_ADDRESS, "results/saved_val_images/" + str(epoch) + "_" + str(i) + "_output.p"), "wb"))
 
             pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy()), [2, 0, 1]),
-                        open("./results/saved_val_images/" + str(epoch) + "_" + str(i) + "_target.p", "wb"))
+                        open(os.path.join(ROOT_ADDRESS, "results/saved_val_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
 
     
 
