@@ -278,7 +278,7 @@ def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
         loss = criterion(outputs, labels)
         
         total_valid_pixel = torch.sum(labels.data != criterion.ignore_index)
-        classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat(outputs, labels, data.n_classes)
+        classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([outputs], labels, data.n_classes)
 
         total_valid_pixel = torch.FloatTensor([total_valid_pixel]).to(device)
         classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc]).to(device)
@@ -331,7 +331,7 @@ def val(model, criterion, valloader, epoch, data):
             
             loss = criterion(outputs, labels)
             total_valid_pixel = torch.sum(labels.data != criterion.ignore_index)
-            classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat(outputs, labels, data.n_classes)
+            classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([outputs], labels, data.n_classes)
 
             total_valid_pixel = torch.FloatTensor([total_valid_pixel]).to(device)
             classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc]).to(device)

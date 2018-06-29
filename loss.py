@@ -52,7 +52,7 @@ def prediction_stat(outputs, labels, n_classes):
     classwise_gtpixels = []
     classwise_predpixels = []
     for output in outputs:
-        _, pred = output.data.max(dim=0)
+        _, pred = output.data.max(dim=1)
         for m in range(n_classes):
             mask1 = lbl == m
             mask2 = pred == m
