@@ -86,6 +86,10 @@ def main(args):
     valdata = data_loader('train', transform=input_transform, target_transform=target_transform)
     valloader = data.DataLoader(valdata, batch_size=args.batch_size, num_workers=1, shuffle=False)
 
+    for i, (images, labels) in enumerate(trainloader):
+        print(i)
+    sys.exit()
+
     n_classes = traindata.n_classes
     n_trainsamples = len(traindata)
     n_iters_per_epoch = np.ceil(n_trainsamples / float(args.batch_size * args.iter_size))
@@ -150,11 +154,11 @@ def main(args):
     num_param_groups = 4
 
     # Setting up scheduler
-    lambda1 = lambda step: 0.5 + 0.5 * math.cos(np.pi * step / total_iters)
     if args.model_path and args.restore:
         # Here we restore all states of optimizer
         optimizer.load_state_dict(optm)
         total_iters = n_iters_per_epoch * args.epochs
+        lambda1 = lambda step: 0.5 + 0.5 * math.cos(np.pi * step / total_iters)
         scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=[lambda1]*num_param_groups, last_epoch=epochs_done*n_iters_per_epoch)
     else:
         # Here we simply restart the training
@@ -162,6 +166,7 @@ def main(args):
             total_iters = args.T0 * n_iters_per_epoch
         else:
             total_iters = ((args.epochs - epochs_done) * n_iters_per_epoch)
+        lambda1 = lambda step: 0.5 + 0.5 * math.cos(np.pi * step / total_iters)
         scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=[lambda1]*num_param_groups)
 
     global l_avg, totalclasswise_pixel_acc, totalclasswise_gtpixels, totalclasswise_predpixels
