@@ -352,6 +352,15 @@ def val(model, criterion, valloader, epoch, data):
                         open("./results/saved_val_images/" + str(epoch) + "_" + str(i) + "_target.p", "wb"))
 
     
-
 if __name__ == '__main__':
+    # Meaning of global evaluation metrics: (all metrics are set to zero at the start of each epoch)
+    # - steps: cumulated total valid pixels in current epoch (i.e. #pixels without thoes ignore_index ones)
+    # - l_avg: average training loss in each epoch
+    # - totalclasswise_pixel_acc: number of correctly predicted pixels of each class in current epoch
+    # - totalclasswise_gtpixels: number of pixels of each class in current epoch
+    # - totalclasswise_predpixels: number of pixels predicted to be of each class in current epoch
+    # - (The metrics with "_test" suffix are metrics with the same meanings but used in validation stage)
+    # - avg_pixel_acc: the accuracy of all classes (all_correct_pred_pixels/all_pixels)
+    # - mean_class_acc: the mean of accuracy of each class
+
     main(args)
