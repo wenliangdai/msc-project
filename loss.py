@@ -46,16 +46,16 @@ def pixel_accuracy(outputs, labels, n_classes):
 
 def prediction_stat(outputs, labels, n_classes):
     lbl = labels.data
-    valid = lbl < n_classes
+    # valid = lbl < n_classes
 
     classwise_pixel_acc = []
     classwise_gtpixels = []
     classwise_predpixels = []
     for output in outputs:
-        _, pred = output.data.max(dim=1)
+        _, pred = output.data.max(dim=0)
         for m in range(n_classes):
             mask1 = lbl == m
-            mask2 = pred[valid] == m
+            mask2 = pred == m
             diff = pred[mask1] - lbl[mask1]
             classwise_pixel_acc += [torch.sum(diff == 0)]
             classwise_gtpixels += [torch.sum(mask1)]

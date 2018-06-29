@@ -22,7 +22,7 @@ from utils import dotdict
 
 ROOT_ADDRESS = '/home/wenlidai/sunets-reproduce/'
 
-torch.set_printoptions(threshold=1e5)
+# torch.set_printoptions(threshold=1e5)
 
 args = dotdict({
     'arch': 'sunet64',
@@ -32,16 +32,16 @@ args = dotdict({
     'img_cols': 512,
     'img_rows': 512,
     'iter_size': 1,
-    'lr': 0.0002*10,
+    'lr': 0.001,
     'log_size': 400,
     'epoch_log_size': 20,
     'manual_seed': 0,
-    'model_path': os.path.join(ROOT_ADDRESS, 'results', 'sunet64_sbd_90.pkl'),
+    'model_path': None,
     'momentum': 0.95,
-    'epochs': 150,
+    'epochs': 100,
     'optim': 'SGD',
     'output_stride': '16',
-    'restore': True,
+    'restore': False,
     'split': 'train_aug',
     'weight_decay': 0.0001
 })
@@ -67,7 +67,7 @@ def main(args):
 
     # Setup Dataloader
     data_loader = get_loader(args.dataset)
-    data_path = get_data_path(args.dataset)
+    # data_path = get_data_path(args.dataset)
 
     # traindata = data_loader(data_path, split=args.split, is_transform=True, img_size=(args.img_rows, args.img_cols))
     # trainloader = data.DataLoader(traindata, batch_size=args.batch_size, num_workers=7, shuffle=True)
@@ -82,13 +82,9 @@ def main(args):
     target_transform = extended_transforms.MaskToTensor()
 
     traindata = data_loader('train', transform=input_transform, target_transform=target_transform, do_transform=True)
-    trainloader = data.DataLoader(traindata, batch_size=args.batch_size, num_workers=1, shuffle=True)
+    trainloader = data.DataLoader(traindata, batch_size=args.batch_size, num_workers=2, shuffle=True)
     valdata = data_loader('train', transform=input_transform, target_transform=target_transform)
-    valloader = data.DataLoader(valdata, batch_size=args.batch_size, num_workers=1, shuffle=False)
-
-    for i, (images, labels) in enumerate(trainloader):
-        print(i)
-    sys.exit()
+    valloader = data.DataLoader(valdata, batch_size=args.batch_size, num_workers=2, shuffle=False)
 
     n_classes = traindata.n_classes
     n_trainsamples = len(traindata)
@@ -194,8 +190,11 @@ def main(args):
         train(model, optimizer, criterion, trainloader, epoch, scheduler, traindata)
         val(model, criterion, valloader, epoch, valdata)
 
-        # save the model every 10 epochs
-        if (epoch + 1) % 10 == 0 or epoch == args.epochs - 1:
+        # save the model every 5 epochs
+        if (epoch + 1) % 5 == 0 or epoch == args.epochs - 1:
+            if (epoch + 1) > 5:
+                os.remove(os.path.join(ROOT_ADDRESS, "results/{}_{}_{}.pkl".format(args.arch, args.dataset, epoch - 4)))
+                os.remove(os.path.join(ROOT_ADDRESS, "results/{}_{}_{}_optimizer.pkl".format(args.arch, args.dataset, epoch - 4)))
             torch.save(model, os.path.join(ROOT_ADDRESS, "results/{}_{}_{}.pkl".format(args.arch, args.dataset, epoch + 1)))
             torch.save({'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict()},
                        os.path.join(ROOT_ADDRESS, "results/{}_{}_{}_optimizer.pkl".format(args.arch, args.dataset, epoch + 1)))
@@ -242,7 +241,6 @@ def main(args):
                           "P_test": avg_pixel_acc_test, "M_test": mean_class_acc_test, "I_test": mIoU_test}
         pickle.dump(saved_accuracy, open(os.path.join(ROOT_ADDRESS, "results/saved_accuracy.p"), "wb"))
 
-
 # Incase one want to freeze BN params
 def set_bn_eval(m):
     classname = m.__class__.__name__
@@ -250,9 +248,6 @@ def set_bn_eval(m):
         m.eval()
         m.weight.requires_grad = False
         m.bias.requires_grad = False
-
-# def transform_labels(labels):
-
 
 def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
     print('='*10, 'Train step', '='*10, '\n')
@@ -268,7 +263,7 @@ def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
     for i, (images, labels) in enumerate(trainloader):
         images = images.to(device)
         labels = labels.to(device)
-        assert images.size()[2:] == labels.size()[1:]
+        # assert images.size()[2:] == labels.size()[1:]
         # print('Inputs size =', images.size())
         # print('Labels size =', labels.size())
 
@@ -276,16 +271,14 @@ def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
             optimizer.zero_grad()
         
         outputs = model(images, labels)
-        assert outputs.size()[2:] == labels.size()[1:]
-        assert outputs.size(1) == data.n_classes
+        # assert outputs.size()[2:] == labels.size()[1:]
+        # assert outputs.size(1) == data.n_classes
         # print('Outputs size =', outputs.size())
 
         loss = criterion(outputs, labels)
-        # print('loss:', loss)
-        # sys.exit()
         
         total_valid_pixel = torch.sum(labels.data != criterion.ignore_index)
-        classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([outputs], labels, data.n_classes)
+        classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat(outputs, labels, data.n_classes)
 
         total_valid_pixel = torch.FloatTensor([total_valid_pixel]).to(device)
         classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc]).to(device)
@@ -333,33 +326,33 @@ def val(model, criterion, valloader, epoch, data):
         images = images.to(device)
         labels = labels.to(device)
 
-    with torch.no_grad():
-        outputs = model(images, labels)
-        
-        loss = criterion(outputs, labels)
-        total_valid_pixel = torch.sum(labels.data != criterion.ignore_index)
-        classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([outputs], labels, data.n_classes)
+        with torch.no_grad():
+            outputs = model(images, labels)
+            
+            loss = criterion(outputs, labels)
+            total_valid_pixel = torch.sum(labels.data != criterion.ignore_index)
+            classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat(outputs, labels, data.n_classes)
 
-        total_valid_pixel = torch.FloatTensor([total_valid_pixel]).to(device)
-        classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc]).to(device)
-        classwise_gtpixels = torch.FloatTensor([classwise_gtpixels]).to(device)
-        classwise_predpixels = torch.FloatTensor([classwise_predpixels]).to(device)
+            total_valid_pixel = torch.FloatTensor([total_valid_pixel]).to(device)
+            classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc]).to(device)
+            classwise_gtpixels = torch.FloatTensor([classwise_gtpixels]).to(device)
+            classwise_predpixels = torch.FloatTensor([classwise_predpixels]).to(device)
 
-        l_avg_test += loss.sum().data.cpu().numpy()
-        steps_test += total_valid_pixel
-        totalclasswise_pixel_acc_test += classwise_pixel_acc.sum(0).data.cpu().numpy()
-        totalclasswise_gtpixels_test += classwise_gtpixels.sum(0).data.cpu().numpy()
-        totalclasswise_predpixels_test += classwise_predpixels.sum(0).data.cpu().numpy()
+            l_avg_test += loss.sum().data.cpu().numpy()
+            steps_test += total_valid_pixel
+            totalclasswise_pixel_acc_test += classwise_pixel_acc.sum(0).data.cpu().numpy()
+            totalclasswise_gtpixels_test += classwise_gtpixels.sum(0).data.cpu().numpy()
+            totalclasswise_predpixels_test += classwise_predpixels.sum(0).data.cpu().numpy()
 
-        if (i + 1) % 50 == 0:
-            pickle.dump(images[0].cpu().numpy(),
-                        open(os.path.join(ROOT_ADDRESS, "results/saved_val_images/" + str(epoch) + "_" + str(i) + "_input.p"), "wb"))
+            if (i + 1) % 50 == 0:
+                pickle.dump(images[0].cpu().numpy(),
+                            open(os.path.join(ROOT_ADDRESS, "results/saved_val_images/" + str(epoch) + "_" + str(i) + "_input.p"), "wb"))
 
-            pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0)), [2, 0, 1]),
-                        open(os.path.join(ROOT_ADDRESS, "results/saved_val_images/" + str(epoch) + "_" + str(i) + "_output.p"), "wb"))
+                pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0)), [2, 0, 1]),
+                            open(os.path.join(ROOT_ADDRESS, "results/saved_val_images/" + str(epoch) + "_" + str(i) + "_output.p"), "wb"))
 
-            pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy()), [2, 0, 1]),
-                        open(os.path.join(ROOT_ADDRESS, "results/saved_val_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
+                pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy()), [2, 0, 1]),
+                            open(os.path.join(ROOT_ADDRESS, "results/saved_val_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
 
     
 

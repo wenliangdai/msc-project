@@ -66,7 +66,7 @@ class VOC(data.Dataset):
         img, mask = self.scale(img, mask)
         img, mask = self.crop(img, mask)
         img, mask = self.flip(img, mask)
-        # img, mask = self.rotate(img, mask)
+        img, mask = self.rotate(img, mask)
 
         return img, mask
     
