@@ -290,9 +290,10 @@ def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
         classwise_gtpixels = torch.FloatTensor([classwise_gtpixels]).to(device)
         classwise_predpixels = torch.FloatTensor([classwise_predpixels]).to(device)
 
-        loss = loss / float(total_valid_pixel)
-        loss = loss / float(args.iter_size)
-        loss.backward()
+        total_loss = loss.sum()
+        total_loss = total_loss / float(total_valid_pixel)
+        total_loss = total_loss / float(args.iter_size)
+        total_loss.backward()
 
         if i % args.iter_size == 0:
             optimizer.step()
