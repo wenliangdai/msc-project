@@ -20,24 +20,25 @@ from main.loader import get_loader
 from main.models import get_model
 from utils import dotdict
 
-# ROOT_ADDRESS = '/home/wenlidai/sunets-reproduce/
-ROOT_ADDRESS = './'
+ROOT_ADDRESS = '/home/wenlidai/sunets-reproduce/'
+# ROOT_ADDRESS = './'
 
 # torch.set_printoptions(threshold=1e5)
 
 args = dotdict({
     'arch': 'sunet64',
     'batch_size': 1,
-    'dataset': 'parts',
+    'dataset': 'sbd',
     'freeze': False,
     'img_cols': 512,
     'img_rows': 512,
     'iter_size': 1,
     'lr': 0.001,
-    'log_size': 400,
+    'log_size': 800,
     'epoch_log_size': 20,
     'manual_seed': 0,
     'model_path': None,
+    'best_model_path': None,
     'momentum': 0.95,
     'epochs': 100,
     'optim': 'SGD',
@@ -104,6 +105,8 @@ def main(args):
     avg_pixel_acc_test = 0
     mean_class_acc_test = 0
     mIoU_test = 0
+    best_mIoU = 0
+    best_epoch = 0
 
     if args.model_path:
         model_name = args.model_path.split('.')
@@ -124,6 +127,11 @@ def main(args):
         avg_pixel_acc_test = saved_accuracy["P_test"][:epochs_done,:]
         mean_class_acc_test = saved_accuracy["M_test"][:epochs_done,:]
         mIoU_test = saved_accuracy["I_test"][:epochs_done,:]
+    
+    if args.best_model_path:
+        best_model_name = args.best_model_path.split('.')[0].split('_')
+        best_mIoU = float(best_model_name[-2])
+        best_epoch = int(best_model_name[-3])
 
     # Learning rates: For new layers (such as final layer), we set lr to be 10x the learning rate of layers already trained
     bias_10x_params = filter(lambda x: ('bias' in x[0]) and ('final' in x[0]) and ('conv' in x[0]),
@@ -206,7 +214,7 @@ def main(args):
         if os.path.isfile(os.path.join(ROOT_ADDRESS, "results/saved_accuracy.p")):
             os.remove(os.path.join(ROOT_ADDRESS, "results/saved_accuracy.p"))
 
-        # saving train and validation loss
+        # save train and validation loss
         X.append(epoch + 1)
         Y.append(l_avg / steps)
         Y_test.append(l_avg_test / steps_test)
@@ -242,6 +250,18 @@ def main(args):
                           "P_test": avg_pixel_acc_test, "M_test": mean_class_acc_test, "I_test": mIoU_test}
         pickle.dump(saved_accuracy, open(os.path.join(ROOT_ADDRESS, "results/saved_accuracy.p"), "wb"))
 
+        # save the best model
+        if mIoU_test > best_mIoU:
+            if best_mIoU > 0:
+                os.remove(os.path.join(ROOT_ADDRESS, "results/{}_{}_{}_{0:.2f}_best.pkl".format(args.arch, args.dataset, best_epoch, best_mIoU)))
+                os.remove(os.path.join(ROOT_ADDRESS, "results/{}_{}_{}_{0:.2f}_optimizer_best.pkl".format(args.arch, args.dataset, best_epoch, best_mIoU)))
+            best_mIoU = mIoU_test
+            best_epoch = epoch + 1
+            torch.save(model, os.path.join(ROOT_ADDRESS, "results/{}_{}_{}_best_{0:.2f}.pkl".format(args.arch, args.dataset, best_epoch, best_mIoU)))
+            torch.save({'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict()},
+                       os.path.join(ROOT_ADDRESS, "results/{}_{}_{}_optimizer_best_{0:.2f}.pkl".format(args.arch, args.dataset, best_epoch, best_mIoU)))
+            
+
 # Incase one want to freeze BN params
 def set_bn_eval(m):
     classname = m.__class__.__name__
@@ -265,12 +285,8 @@ def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
         images = images.to(device)
         labels = labels.to(device)
         # assert images.size()[2:] == labels.size()[1:]
-        print('Inputs size =', images.size())
-        print('Labels size =', labels.size())
-
-        print(torch.sum(labels == 1))
-
-        sys.exit()
+        # print('Inputs size =', images.size())
+        # print('Labels size =', labels.size())
 
         if i % args.iter_size == 0:
             optimizer.zero_grad()
@@ -350,7 +366,7 @@ def val(model, criterion, valloader, epoch, data):
             totalclasswise_gtpixels_test += classwise_gtpixels.sum(0).data.cpu().numpy()
             totalclasswise_predpixels_test += classwise_predpixels.sum(0).data.cpu().numpy()
 
-            if (i + 1) % 50 == 0:
+            if (i + 1) % 400 == 0:
                 pickle.dump(images[0].cpu().numpy(),
                             open(os.path.join(ROOT_ADDRESS, "results/saved_val_images/" + str(epoch) + "_" + str(i) + "_input.p"), "wb"))
 
