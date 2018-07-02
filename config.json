@@ -1,18 +1,17 @@
 {
-  "pascal":
-  {
+  "pascal": {
     "data_path": "/home/wenlidai/datasets/VOC2012/"
   },
-  "pascal_test":
-  {
+  "pascal_test": {
     "data_path": "/home/wenlidai/datasets/VOC2012test/"
   },
-  "sbd":
-  {
+  "sbd": {
     "data_path": "/home/wenlidai/datasets/benchmark_RELEASE/"
   },
-  "coco":
-  {
+  "coco": {
     "data_path": "/home/wenlidai/datasets/coco/"
+  },
+  "pascal_parts": {
+    "data_path": "/Users/wenliang/Documents/Codes/Datasets/VOC2012"
   }
 }

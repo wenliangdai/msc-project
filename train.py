@@ -20,14 +20,15 @@ from main.loader import get_loader
 from main.models import get_model
 from utils import dotdict
 
-ROOT_ADDRESS = '/home/wenlidai/sunets-reproduce/'
+# ROOT_ADDRESS = '/home/wenlidai/sunets-reproduce/
+ROOT_ADDRESS = './'
 
 # torch.set_printoptions(threshold=1e5)
 
 args = dotdict({
     'arch': 'sunet64',
-    'batch_size': 10,
-    'dataset': 'sbd',
+    'batch_size': 1,
+    'dataset': 'parts',
     'freeze': False,
     'img_cols': 512,
     'img_rows': 512,
@@ -83,7 +84,7 @@ def main(args):
 
     traindata = data_loader('train', transform=input_transform, target_transform=target_transform, do_transform=True)
     trainloader = data.DataLoader(traindata, batch_size=args.batch_size, num_workers=2, shuffle=True)
-    valdata = data_loader('train', transform=input_transform, target_transform=target_transform)
+    valdata = data_loader('val', transform=input_transform, target_transform=target_transform)
     valloader = data.DataLoader(valdata, batch_size=args.batch_size, num_workers=2, shuffle=False)
 
     n_classes = traindata.n_classes
@@ -264,8 +265,12 @@ def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
         images = images.to(device)
         labels = labels.to(device)
         # assert images.size()[2:] == labels.size()[1:]
-        # print('Inputs size =', images.size())
-        # print('Labels size =', labels.size())
+        print('Inputs size =', images.size())
+        print('Labels size =', labels.size())
+
+        print(torch.sum(labels == 1))
+
+        sys.exit()
 
         if i % args.iter_size == 0:
             optimizer.zero_grad()

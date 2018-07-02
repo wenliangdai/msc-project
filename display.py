@@ -6,16 +6,16 @@ import visdom
 import pickle
 import time
 
-ROOT_ADDRESS = '/home/wenlidai/sunets-reproduce/'
+ROOT_ADDRESS = './'
 
 def main(args):
-    vis = visdom.Visdom(port=6008)
+    vis = visdom.Visdom()
 
     losses = pickle.load( open( os.path.join(ROOT_ADDRESS, "results/saved_loss.p"), "rb" ) )
     x=np.squeeze(np.asarray(losses["X"]))
     l=np.squeeze(np.asarray(losses["Y"]))
     ltest=np.squeeze(np.asarray(losses["Y_test"]))
-    vis.line(np.vstack((l,ltest)).T, x, env='loss_acc', opts=dict(title="Loss"))
+    vis.line(np.vstack((l,ltest)).T, x, env='loss_acc', opts=dict(title="Loss", legend=['Y', 'Y_test']))
 
     accuracy = pickle.load( open( os.path.join(ROOT_ADDRESS, "results/saved_accuracy.p"), "rb" ) )
     x=np.squeeze(np.asarray(accuracy["X"]))

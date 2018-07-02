@@ -1,6 +1,7 @@
 import json
 
-def get_data_path(name, config_file='/home/wenlidai/sunets-reproduce/config.json'):
+# /home/wenlidai/sunets-reproduce/
+def get_data_path(name, config_file='config.json'):
     """get_data_path
 
     :param name:
