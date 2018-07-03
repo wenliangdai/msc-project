@@ -35,21 +35,22 @@ class VOC_parts(data.Dataset):
 
         img_path, mask_path = self.imgs[index]
         img = Image.open(img_path).convert('RGB')
-        mask_obj = sio.loadmat(mask_path)
-        person_class_index = None
-        for i, class_name in enumerate(mask_obj['anno']['objects'][0,0]['class'][0]):
-            if class_name[0] == 'person':
-                person_class_index = i
+        mask = Image.open(mask_path).convert('P')
 
-        for i, part in enumerate(mask_obj['anno']['objects'][0,0]['parts'][0, person_class_index][0]):
-            part_name = part[0][0]
-            part_index = self.get_part_index(part_name)
-            if i == 0:
-                mask = part[1] * part_index
-            else:
-                mask = mask + part[1] * part_index
-        print('!!!',np.sum(mask == 5))
-        mask = Image.fromarray(mask.astype(np.uint8)).convert('P')
+        # mask_obj = sio.loadmat(mask_path)
+        # person_class_index = None
+        # for i, class_name in enumerate(mask_obj['anno']['objects'][0,0]['class'][0]):
+        #     if class_name[0] == 'person':
+        #         person_class_index = i
+
+        # for i, part in enumerate(mask_obj['anno']['objects'][0,0]['parts'][0, person_class_index][0]):
+        #     part_name = part[0][0]
+        #     part_index = self.get_part_index(part_name)
+        #     if i == 0:
+        #         mask = part[1] * part_index
+        #     else:
+        #         mask = mask + part[1] * part_index
+        # mask = Image.fromarray(mask.astype(np.uint8)).convert('P')
 
         if self.do_transform:
             img, mask = self.further_transform(img, mask)
@@ -163,20 +164,20 @@ class VOC_parts(data.Dataset):
         # Train with SBD training data
         if mode == 'train':
             img_path = os.path.join(data_path, 'JPEGImages')
-            mask_path = os.path.join(data_path, 'ImageSets', 'Parts', 'Annotations_Part')
+            mask_path = os.path.join(data_path, 'ImageSets', 'Person', 'gt')
             data_list = [l.strip('\n') for l in open(os.path.join(
-                data_path, 'ImageSets', 'Parts', 'train.txt')).readlines()]
+                data_path, 'ImageSets', 'Person', 'train.txt')).readlines()]
             for it in data_list:
-                item = (os.path.join(img_path, it + '.jpg'), os.path.join(mask_path, it + '.mat'))
+                item = (os.path.join(img_path, it + '.jpg'), os.path.join(mask_path, it + '.png'))
                 items.append(item)
         # Validate/Test with SBD validate/test data
         elif mode == 'val':
             img_path = os.path.join(data_path, 'JPEGImages')
-            mask_path = os.path.join(data_path, 'ImageSets', 'Parts', 'Annotations_Part')
+            mask_path = os.path.join(data_path, 'ImageSets', 'Person', 'gt')
             data_list = [l.strip('\n') for l in open(os.path.join(
-                data_path, 'ImageSets', 'Parts', 'val.txt')).readlines()]
+                data_path, 'ImageSets', 'Person', 'val.txt')).readlines()]
             for it in data_list:
-                item = (os.path.join(img_path, it + '.jpg'), os.path.join(mask_path, it + '.mat'))
+                item = (os.path.join(img_path, it + '.jpg'), os.path.join(mask_path, it + '.png'))
                 items.append(item)
         
         return items
