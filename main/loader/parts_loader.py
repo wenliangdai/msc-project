@@ -156,7 +156,7 @@ class VOC_parts(data.Dataset):
     def preprocess(self, mode):
         assert mode in ['train', 'val', 'test']
         items = []
-        data_path = get_data_path('pascal_parts')
+        data_path = get_data_path('parts')
         
         if mode == 'train':
             img_path = os.path.join(data_path, 'JPEGImages')
