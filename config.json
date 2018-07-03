@@ -11,7 +11,7 @@
   "coco": {
     "data_path": "/home/wenlidai/datasets/coco/"
   },
-  "pascal_parts": {
+  "parts": {
     "data_path": "/Users/wenliang/Documents/Codes/Datasets/VOC2012"
   }
 }

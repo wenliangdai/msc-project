@@ -27,7 +27,7 @@ class VOC_parts(data.Dataset):
         self.ignore_index = ignore_index
         self.do_transform = do_transform
         self.filler = [0, 0, 0]
-        self.n_classes = 5 # head, torso, arm, leg, background
+        self.n_classes = 7 # head, torso, upper/lower arm, upper/lower leg, background
 
     def __getitem__(self, index):
         img = None
@@ -150,18 +150,14 @@ class VOC_parts(data.Dataset):
             return rgb
 
     def get_pascal_labels(self):
-        # 21 classes
-        return np.asarray([[0,0,0], [128,0,0], [0,128,0], [128,128,0], [0,0,128], [128,0,128],
-                              [0,128,128], [128,128,128], [64,0,0], [192,0,0], [64,128,0], [192,128,0],
-                              [64,0,128], [192,0,128], [64,128,128], [192,128,128], [0, 64,0], [128, 64, 0],
-                              [0,192,0], [128,192,0], [0,64,128]])
+        # 7 classes
+        return np.asarray([[0,0,0], [128,0,0], [0,128,0], [128,128,0], [0,0,128], [128,0,128], [0,128,128]])
 
     def preprocess(self, mode):
         assert mode in ['train', 'val', 'test']
         items = []
         data_path = get_data_path('pascal_parts')
         
-        # Train with SBD training data
         if mode == 'train':
             img_path = os.path.join(data_path, 'JPEGImages')
             mask_path = os.path.join(data_path, 'ImageSets', 'Person', 'gt')
@@ -170,7 +166,6 @@ class VOC_parts(data.Dataset):
             for it in data_list:
                 item = (os.path.join(img_path, it + '.jpg'), os.path.join(mask_path, it + '.png'))
                 items.append(item)
-        # Validate/Test with SBD validate/test data
         elif mode == 'val':
             img_path = os.path.join(data_path, 'JPEGImages')
             mask_path = os.path.join(data_path, 'ImageSets', 'Person', 'gt')
