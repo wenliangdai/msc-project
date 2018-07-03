@@ -12,6 +12,6 @@
     "data_path": "/home/wenlidai/datasets/coco/"
   },
   "parts": {
-    "data_path": "/Users/wenliang/Documents/Codes/Datasets/VOC2012"
+    "data_path": "/home/wenlidai/datasets/VOC2012/"
   }
 }
