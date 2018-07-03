@@ -27,7 +27,7 @@ ROOT_ADDRESS = '/home/wenlidai/sunets-reproduce/'
 
 args = dotdict({
     'arch': 'sunet64',
-    'batch_size': 1,
+    'batch_size': 10,
     'dataset': 'sbd',
     'freeze': False,
     'img_cols': 512,
@@ -253,13 +253,13 @@ def main(args):
         # save the best model
         if mIoU_test > best_mIoU:
             if best_mIoU > 0:
-                os.remove(os.path.join(ROOT_ADDRESS, "results/{}_{}_{}_{0:.2f}_best.pkl".format(args.arch, args.dataset, best_epoch, best_mIoU)))
-                os.remove(os.path.join(ROOT_ADDRESS, "results/{}_{}_{}_{0:.2f}_optimizer_best.pkl".format(args.arch, args.dataset, best_epoch, best_mIoU)))
+                os.remove(os.path.join(ROOT_ADDRESS, "results/{0}_{1}_{2}_{3:.2f}_best.pkl".format(args.arch, args.dataset, best_epoch, best_mIoU)))
+                os.remove(os.path.join(ROOT_ADDRESS, "results/{0}_{1}_{2}_{3:.2f}_optimizer_best.pkl".format(args.arch, args.dataset, best_epoch, best_mIoU)))
             best_mIoU = mIoU_test
             best_epoch = epoch + 1
-            torch.save(model, os.path.join(ROOT_ADDRESS, "results/{}_{}_{}_best_{0:.2f}.pkl".format(args.arch, args.dataset, best_epoch, best_mIoU)))
+            torch.save(model, os.path.join(ROOT_ADDRESS, "results/{0}_{1}_{2}_best_{3:.2f}.pkl".format(args.arch, args.dataset, best_epoch, best_mIoU)))
             torch.save({'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict()},
-                       os.path.join(ROOT_ADDRESS, "results/{}_{}_{}_optimizer_best_{0:.2f}.pkl".format(args.arch, args.dataset, best_epoch, best_mIoU)))
+                       os.path.join(ROOT_ADDRESS, "results/{0}_{1}_{2}_optimizer_best_{3:.2f}.pkl".format(args.arch, args.dataset, best_epoch, best_mIoU)))
             
 
 # Incase one want to freeze BN params
@@ -366,7 +366,7 @@ def val(model, criterion, valloader, epoch, data):
             totalclasswise_gtpixels_test += classwise_gtpixels.sum(0).data.cpu().numpy()
             totalclasswise_predpixels_test += classwise_predpixels.sum(0).data.cpu().numpy()
 
-            if (i + 1) % 400 == 0:
+            if (i + 1) % 200 == 0:
                 pickle.dump(images[0].cpu().numpy(),
                             open(os.path.join(ROOT_ADDRESS, "results/saved_val_images/" + str(epoch) + "_" + str(i) + "_input.p"), "wb"))
 
