@@ -4,5 +4,5 @@ class dotdict(dict):
     __delattr__ = dict.__delitem__
 
 def float2str(num):
-    nums = num.split('.')
+    nums = str(num).split('.')
     return nums[0] + '.' + nums[1][0:2]

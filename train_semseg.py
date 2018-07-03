@@ -52,6 +52,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 def main(args):
     print('='*10, 'Starting', '='*10, '\n')
+    print(device)
 
     # Set the seed for reproducing the results
     random.seed(args.manual_seed)
@@ -251,7 +252,7 @@ def main(args):
         pickle.dump(saved_accuracy, open(os.path.join(ROOT_ADDRESS, "results/saved_accuracy.p"), "wb"))
 
         # save the best model
-        this_mIoU = np.mean(totalclasswise_pixel_acc_test / (totalclasswise_gtpixels_test + totalclasswise_predpixels_test - totalclasswise_pixel_acc_test), axis=1)
+        this_mIoU = np.mean(totalclasswise_pixel_acc_test / (totalclasswise_gtpixels_test + totalclasswise_predpixels_test - totalclasswise_pixel_acc_test), axis=1)[0]
         if this_mIoU > best_mIoU:
             if best_mIoU > 0:
                 os.remove(os.path.join(ROOT_ADDRESS, "results/{}_{}_{}_{}_best.pkl".format(args.arch, args.dataset, best_epoch, float2str(best_mIoU))))
