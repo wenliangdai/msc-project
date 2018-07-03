@@ -1,5 +1,6 @@
 import json
 
+# /home/wenlidai/sunets-reproduce/
 def get_data_path(name, config_file='config.json'):
     """get_data_path
 

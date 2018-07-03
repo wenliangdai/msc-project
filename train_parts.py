@@ -14,28 +14,33 @@ from torch.utils import data
 
 import torchvision.transforms as standard_transforms
 import transforms as extended_transforms
-from loss import prediction_stat, prediction_stat_confusion_matrix
+from loss import prediction_stat
 from main import get_data_path
-from main.loader import get_loader, pascalVOCLoader
+from main.loader import get_loader
 from main.models import get_model
-from utils import dotdict
+from utils import dotdict, float2str
 
-torch.set_printoptions(threshold=1e5)
+# ROOT_ADDRESS = '/home/wenlidai/sunets-reproduce/'
+ROOT_ADDRESS = './'
+
+# torch.set_printoptions(threshold=1e5)
 
 args = dotdict({
     'arch': 'sunet64',
-    'batch_size': 22,
-    'dataset': 'sbd',
+    'batch_size': 10,
+    'dataset': 'parts',
     'freeze': False,
     'img_cols': 512,
     'img_rows': 512,
     'iter_size': 1,
-    'lr': 0.0002*10,
-    'log_size': 400,
+    'lr': 0.001,
+    'log_size': 100,
+    'epoch_log_size': 20,
     'manual_seed': 0,
     'model_path': None,
+    'best_model_path': None,
     'momentum': 0.95,
-    'epochs': 90,
+    'epochs': 120,
     'optim': 'SGD',
     'output_stride': '16',
     'restore': False,
@@ -47,6 +52,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 def main(args):
     print('='*10, 'Starting', '='*10, '\n')
+    print(device)
 
     # Set the seed for reproducing the results
     random.seed(args.manual_seed)
@@ -57,14 +63,14 @@ def main(args):
         cudnn.benchmark = True
     
     # Set up results folder
-    if not os.path.exists('./results/saved_val_images'):
-        os.makedirs('./results/saved_val_images')
-    if not os.path.exists('./results/saved_train_images'):
-        os.makedirs('./results/saved_train_images')
+    if not os.path.exists(os.path.join(ROOT_ADDRESS, 'results_parts/saved_val_images')):
+        os.makedirs(os.path.join(ROOT_ADDRESS, 'results_parts/saved_val_images'))
+    if not os.path.exists(os.path.join(ROOT_ADDRESS, 'results_parts/saved_train_images')):
+        os.makedirs(os.path.join(ROOT_ADDRESS, 'results_parts/saved_train_images'))
 
     # Setup Dataloader
     data_loader = get_loader(args.dataset)
-    data_path = get_data_path(args.dataset)
+    # data_path = get_data_path(args.dataset)
 
     # traindata = data_loader(data_path, split=args.split, is_transform=True, img_size=(args.img_rows, args.img_cols))
     # trainloader = data.DataLoader(traindata, batch_size=args.batch_size, num_workers=7, shuffle=True)
@@ -79,9 +85,9 @@ def main(args):
     target_transform = extended_transforms.MaskToTensor()
 
     traindata = data_loader('train', transform=input_transform, target_transform=target_transform, do_transform=True)
-    trainloader = data.DataLoader(traindata, batch_size=args.batch_size, num_workers=7, shuffle=True)
-    valdata = data_loader('train', transform=input_transform, target_transform=target_transform)
-    valloader = data.DataLoader(valdata, batch_size=args.batch_size, num_workers=7, shuffle=False)
+    trainloader = data.DataLoader(traindata, batch_size=args.batch_size, num_workers=1, shuffle=True)
+    valdata = data_loader('val', transform=input_transform, target_transform=target_transform)
+    valloader = data.DataLoader(valdata, batch_size=args.batch_size, num_workers=1, shuffle=False)
 
     n_classes = traindata.n_classes
     n_trainsamples = len(traindata)
@@ -100,6 +106,8 @@ def main(args):
     avg_pixel_acc_test = 0
     mean_class_acc_test = 0
     mIoU_test = 0
+    best_mIoU = 0
+    best_epoch = 0
 
     if args.model_path:
         model_name = args.model_path.split('.')
@@ -109,8 +117,8 @@ def main(args):
         model.load_state_dict(checkpoint['state_dict'])
         split_str = model_name[0].split('_')
         epochs_done = int(split_str[-1])
-        saved_loss = pickle.load( open("results/saved_loss.p", "rb") )
-        saved_accuracy = pickle.load( open("results/saved_accuracy.p", "rb") )
+        saved_loss = pickle.load( open(os.path.join(ROOT_ADDRESS, "results_parts/saved_loss.p"), "rb") )
+        saved_accuracy = pickle.load( open(os.path.join(ROOT_ADDRESS, "results_parts/saved_accuracy.p"), "rb") )
         X=saved_loss["X"][:epochs_done]
         Y=saved_loss["Y"][:epochs_done]
         Y_test=saved_loss["Y_test"][:epochs_done]
@@ -120,6 +128,11 @@ def main(args):
         avg_pixel_acc_test = saved_accuracy["P_test"][:epochs_done,:]
         mean_class_acc_test = saved_accuracy["M_test"][:epochs_done,:]
         mIoU_test = saved_accuracy["I_test"][:epochs_done,:]
+    
+    if args.best_model_path:
+        best_model_name = args.best_model_path.split('.')[0].split('_')
+        best_mIoU = float(best_model_name[-2])
+        best_epoch = int(best_model_name[-3])
 
     # Learning rates: For new layers (such as final layer), we set lr to be 10x the learning rate of layers already trained
     bias_10x_params = filter(lambda x: ('bias' in x[0]) and ('final' in x[0]) and ('conv' in x[0]),
@@ -147,11 +160,11 @@ def main(args):
     num_param_groups = 4
 
     # Setting up scheduler
-    lambda1 = lambda step: 0.5 + 0.5 * math.cos(np.pi * step / total_iters)
     if args.model_path and args.restore:
         # Here we restore all states of optimizer
         optimizer.load_state_dict(optm)
         total_iters = n_iters_per_epoch * args.epochs
+        lambda1 = lambda step: 0.5 + 0.5 * math.cos(np.pi * step / total_iters)
         scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=[lambda1]*num_param_groups, last_epoch=epochs_done*n_iters_per_epoch)
     else:
         # Here we simply restart the training
@@ -159,6 +172,7 @@ def main(args):
             total_iters = args.T0 * n_iters_per_epoch
         else:
             total_iters = ((args.epochs - epochs_done) * n_iters_per_epoch)
+        lambda1 = lambda step: 0.5 + 0.5 * math.cos(np.pi * step / total_iters)
         scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=[lambda1]*num_param_groups)
 
     global l_avg, totalclasswise_pixel_acc, totalclasswise_gtpixels, totalclasswise_predpixels
@@ -171,6 +185,7 @@ def main(args):
 
     print('='*10, 'Entering epoch loop', '='*10, '\n')
     for epoch in range(epochs_done, args.epochs):
+        print('='*10, 'Epoch %d' % (epoch + 1), '='*10)
         l_avg = 0
         totalclasswise_pixel_acc = 0
         totalclasswise_gtpixels = 0
@@ -185,24 +200,27 @@ def main(args):
         train(model, optimizer, criterion, trainloader, epoch, scheduler, traindata)
         val(model, criterion, valloader, epoch, valdata)
 
-        # save the model every 10 epochs
-        if (epoch + 1) % 10 == 0 or epoch == args.epochs - 1:
-            torch.save(model, "./results/{}_{}_{}.pkl".format(args.arch, args.dataset, epoch + 1))
+        # save the model every 5 epochs
+        if (epoch + 1) % 5 == 0 or epoch == args.epochs - 1:
+            if (epoch + 1) > 5:
+                os.remove(os.path.join(ROOT_ADDRESS, "results_parts/{}_{}_{}.pkl".format(args.arch, args.dataset, epoch - 4)))
+                os.remove(os.path.join(ROOT_ADDRESS, "results_parts/{}_{}_{}_optimizer.pkl".format(args.arch, args.dataset, epoch - 4)))
+            torch.save(model, os.path.join(ROOT_ADDRESS, "results_parts/{}_{}_{}.pkl".format(args.arch, args.dataset, epoch + 1)))
             torch.save({'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict()},
-                       "./results/{}_{}_{}_optimizer.pkl".format(args.arch, args.dataset, epoch + 1))
+                       os.path.join(ROOT_ADDRESS, "results_parts/{}_{}_{}_optimizer.pkl".format(args.arch, args.dataset, epoch + 1)))
         
         # remove old loss & accuracy files
-        if os.path.isfile("./results/saved_loss.p"):
-            os.remove("./results/saved_loss.p")
-        if os.path.isfile("./results/saved_accuracy.p"):
-            os.remove("./results/saved_accuracy.p")
+        if os.path.isfile(os.path.join(ROOT_ADDRESS, "results_parts/saved_loss.p")):
+            os.remove(os.path.join(ROOT_ADDRESS, "results_parts/saved_loss.p"))
+        if os.path.isfile(os.path.join(ROOT_ADDRESS, "results_parts/saved_accuracy.p")):
+            os.remove(os.path.join(ROOT_ADDRESS, "results_parts/saved_accuracy.p"))
 
-        # saving train and validation loss
+        # save train and validation loss
         X.append(epoch + 1)
         Y.append(l_avg / steps)
         Y_test.append(l_avg_test / steps_test)
         saved_loss={"X": X, "Y": Y, "Y_test": Y_test}
-        pickle.dump(saved_loss, open("results/saved_loss.p", "wb"))
+        pickle.dump(saved_loss, open(os.path.join(ROOT_ADDRESS, "results_parts/saved_loss.p"), "wb"))
         
         # pixel accuracy
         totalclasswise_pixel_acc = totalclasswise_pixel_acc.reshape((-1, n_classes)).astype(np.float32)
@@ -231,9 +249,20 @@ def main(args):
 
         saved_accuracy = {"X": X, "P": avg_pixel_acc, "M": mean_class_acc, "I": mIoU,
                           "P_test": avg_pixel_acc_test, "M_test": mean_class_acc_test, "I_test": mIoU_test}
-        pickle.dump(saved_accuracy, open("results/saved_accuracy.p", "wb"))
+        pickle.dump(saved_accuracy, open(os.path.join(ROOT_ADDRESS, "results_parts/saved_accuracy.p"), "wb"))
 
-
+        # save the best model
+        this_mIoU = np.mean(totalclasswise_pixel_acc_test / (totalclasswise_gtpixels_test + totalclasswise_predpixels_test - totalclasswise_pixel_acc_test), axis=1)[0]
+        if this_mIoU > best_mIoU:
+            if best_mIoU > 0:
+                os.remove(os.path.join(ROOT_ADDRESS, "results_parts/{}_{}_{}_{}_best.pkl".format(args.arch, args.dataset, best_epoch, float2str(best_mIoU))))
+                os.remove(os.path.join(ROOT_ADDRESS, "results_parts/{}_{}_{}_{}_optimizer_best.pkl".format(args.arch, args.dataset, best_epoch, float2str(best_mIoU))))
+            best_mIoU = this_mIoU
+            best_epoch = epoch + 1
+            torch.save(model, os.path.join(ROOT_ADDRESS, "results_parts/{}_{}_{}_{}_best.pkl".format(args.arch, args.dataset, best_epoch, float2str(best_mIoU))))
+            torch.save({'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict()},
+                       os.path.join(ROOT_ADDRESS, "results_parts/{}_{}_{}_{}_optimizer_best.pkl".format(args.arch, args.dataset, best_epoch, float2str(best_mIoU))))
+            
 # Incase one want to freeze BN params
 def set_bn_eval(m):
     classname = m.__class__.__name__
@@ -241,9 +270,6 @@ def set_bn_eval(m):
         m.eval()
         m.weight.requires_grad = False
         m.bias.requires_grad = False
-
-# def transform_labels(labels):
-
 
 def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
     print('='*10, 'Train step', '='*10, '\n')
@@ -259,7 +285,7 @@ def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
     for i, (images, labels) in enumerate(trainloader):
         images = images.to(device)
         labels = labels.to(device)
-        assert images.size()[2:] == labels.size()[1:]
+        # assert images.size()[2:] == labels.size()[1:]
         # print('Inputs size =', images.size())
         # print('Labels size =', labels.size())
 
@@ -267,13 +293,11 @@ def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
             optimizer.zero_grad()
         
         outputs = model(images, labels)
-        assert outputs.size()[2:] == labels.size()[1:]
-        assert outputs.size(1) == data.n_classes
+        # assert outputs.size()[2:] == labels.size()[1:]
+        # assert outputs.size(1) == data.n_classes
         # print('Outputs size =', outputs.size())
 
         loss = criterion(outputs, labels)
-        # print('loss:', loss)
-        # sys.exit()
         
         total_valid_pixel = torch.sum(labels.data != criterion.ignore_index)
         classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([outputs], labels, data.n_classes)
@@ -283,9 +307,10 @@ def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
         classwise_gtpixels = torch.FloatTensor([classwise_gtpixels]).to(device)
         classwise_predpixels = torch.FloatTensor([classwise_predpixels]).to(device)
 
-        loss = loss / float(total_valid_pixel)
-        loss = loss / float(args.iter_size)
-        loss.backward()
+        total_loss = loss.sum()
+        total_loss = total_loss / float(total_valid_pixel)
+        total_loss = total_loss / float(args.iter_size)
+        total_loss.backward()
 
         if i % args.iter_size == 0:
             optimizer.step()
@@ -296,20 +321,21 @@ def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
         totalclasswise_gtpixels += classwise_gtpixels.sum(0).data.cpu().numpy()
         totalclasswise_predpixels += classwise_predpixels.sum(0).data.cpu().numpy()
 
-        print("Epoch [%d/%d] Loss: %.4f" % (epoch + 1, args.epochs, loss.sum().item()))
+        if (i + 1) % args.epoch_log_size == 0:
+            print("Epoch [%d/%d] Loss: %.4f" % (epoch + 1, args.epochs, loss.sum().item()))
 
         if (i + 1) % args.iter_size == 0:
             scheduler.step()
 
         if (i + 1) % args.log_size == 0:
-            pickle.dump(images[0].numpy(),
-                        open("./results/saved_train_images/" + str(epoch) + "_" + str(i) + "_input.p", "wb"))
+            pickle.dump(images[0].cpu().numpy(),
+                        open(os.path.join(ROOT_ADDRESS, "results_parts/saved_train_images/" + str(epoch) + "_" + str(i) + "_input.p"), "wb"))
 
             pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0)), [2, 0, 1]),
-                        open("./results/saved_train_images/" + str(epoch) + "_" + str(i) + "_output.p", "wb"))
+                        open(os.path.join(ROOT_ADDRESS, "results_parts/saved_train_images/" + str(epoch) + "_" + str(i) + "_output.p"), "wb"))
 
-            pickle.dump(np.transpose(data.decode_segmap(labels[0].numpy()), [2, 0, 1]),
-                        open("./results/saved_train_images/" + str(epoch) + "_" + str(i) + "_target.p", "wb"))
+            pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy()), [2, 0, 1]),
+                        open(os.path.join(ROOT_ADDRESS, "results_parts/saved_train_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
 
 def val(model, criterion, valloader, epoch, data):
     print('='*10, 'Validate step', '='*10, '\n')
@@ -323,44 +349,35 @@ def val(model, criterion, valloader, epoch, data):
         images = images.to(device)
         labels = labels.to(device)
 
-    with torch.no_grad():
-        outputs = model(images, labels)
-        
-        loss = criterion(outputs, labels)
-        total_valid_pixel = torch.sum(labels.data != criterion.ignore_index)
-        classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([outputs], labels, data.n_classes)
+        with torch.no_grad():
+            outputs = model(images, labels)
+            
+            loss = criterion(outputs, labels)
+            total_valid_pixel = torch.sum(labels.data != criterion.ignore_index)
+            classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([outputs], labels, data.n_classes)
 
-        total_valid_pixel = torch.FloatTensor([total_valid_pixel]).to(device)
-        classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc]).to(device)
-        classwise_gtpixels = torch.FloatTensor([classwise_gtpixels]).to(device)
-        classwise_predpixels = torch.FloatTensor([classwise_predpixels]).to(device)
+            total_valid_pixel = torch.FloatTensor([total_valid_pixel]).to(device)
+            classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc]).to(device)
+            classwise_gtpixels = torch.FloatTensor([classwise_gtpixels]).to(device)
+            classwise_predpixels = torch.FloatTensor([classwise_predpixels]).to(device)
 
-        l_avg_test += loss.sum().data.cpu().numpy()
-        steps_test += total_valid_pixel
-        totalclasswise_pixel_acc_test += classwise_pixel_acc.sum(0).data.cpu().numpy()
-        totalclasswise_gtpixels_test += classwise_gtpixels.sum(0).data.cpu().numpy()
-        totalclasswise_predpixels_test += classwise_predpixels.sum(0).data.cpu().numpy()
+            l_avg_test += loss.sum().data.cpu().numpy()
+            steps_test += total_valid_pixel
+            totalclasswise_pixel_acc_test += classwise_pixel_acc.sum(0).data.cpu().numpy()
+            totalclasswise_gtpixels_test += classwise_gtpixels.sum(0).data.cpu().numpy()
+            totalclasswise_predpixels_test += classwise_predpixels.sum(0).data.cpu().numpy()
 
-        if (i + 1) % 50 == 0:
-            pickle.dump(images[0].numpy(),
-                        open("./results/saved_val_images/" + str(epoch) + "_" + str(i) + "_input.p", "wb"))
+            if (i + 1) % 200 == 0:
+                pickle.dump(images[0].cpu().numpy(),
+                            open(os.path.join(ROOT_ADDRESS, "results_parts/saved_val_images/" + str(epoch) + "_" + str(i) + "_input.p"), "wb"))
 
-            pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0)), [2, 0, 1]),
-                        open("./results/saved_val_images/" + str(epoch) + "_" + str(i) + "_output.p", "wb"))
+                pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0)), [2, 0, 1]),
+                            open(os.path.join(ROOT_ADDRESS, "results_parts/saved_val_images/" + str(epoch) + "_" + str(i) + "_output.p"), "wb"))
 
-            pickle.dump(np.transpose(data.decode_segmap(labels[0].numpy()), [2, 0, 1]),
-                        open("./results/saved_val_images/" + str(epoch) + "_" + str(i) + "_target.p", "wb"))
+                pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy()), [2, 0, 1]),
+                            open(os.path.join(ROOT_ADDRESS, "results_parts/saved_val_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
 
     
-if __name__ == '__main__':
-    # Meaning of global evaluation metrics: (all metrics are set to zero at the start of each epoch)
-    # - steps: cumulated total valid pixels in current epoch (i.e. #pixels without thoes ignore_index ones)
-    # - l_avg: average training loss in each epoch
-    # - totalclasswise_pixel_acc: number of correctly predicted pixels of each class in current epoch
-    # - totalclasswise_gtpixels: number of pixels of each class in current epoch
-    # - totalclasswise_predpixels: number of pixels predicted to be of each class in current epoch
-    # - (The metrics with "_test" suffix are metrics with the same meanings but used in validation stage)
-    # - avg_pixel_acc: the accuracy of all classes (all_correct_pred_pixels/all_pixels)
-    # - mean_class_acc: the mean of accuracy of each class
 
+if __name__ == '__main__':
     main(args)

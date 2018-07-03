@@ -1,2 +1,2 @@
-# master-level-project
-Master level project - training strategies of deep neural network for computer vision
+# About
+This repositroy is used for my Master level degree project.

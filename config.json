@@ -1,14 +1,17 @@
 {
-  "pascal":
-  {
-    "data_path": "/Users/wenliang/Documents/Codes/Datasets/VOC2012/"
+  "pascal": {
+    "data_path": "/home/wenlidai/datasets/VOC2012/"
   },
-  "sbd":
-  {
-    "data_path": "/Users/wenliang/Documents/Codes/Datasets/benchmark_RELEASE/"
+  "pascal_test": {
+    "data_path": "/home/wenlidai/datasets/VOC2012test/"
   },
-  "coco":
-  {
-    "data_path": "/Users/wenliang/Documents/Codes/Datasets/coco/"
+  "sbd": {
+    "data_path": "/home/wenlidai/datasets/benchmark_RELEASE/"
+  },
+  "coco": {
+    "data_path": "/home/wenlidai/datasets/coco/"
+  },
+  "parts": {
+    "data_path": "/Users/wenliang/Documents/Codes/Datasets/VOC2012"
   }
 }
