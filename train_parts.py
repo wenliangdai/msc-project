@@ -40,7 +40,7 @@ args = dotdict({
     'model_path': None,
     'best_model_path': None,
     'momentum': 0.95,
-    'epochs': 100,
+    'epochs': 120,
     'optim': 'SGD',
     'output_stride': '16',
     'restore': False,
@@ -85,9 +85,9 @@ def main(args):
     target_transform = extended_transforms.MaskToTensor()
 
     traindata = data_loader('train', transform=input_transform, target_transform=target_transform, do_transform=True)
-    trainloader = data.DataLoader(traindata, batch_size=args.batch_size, num_workers=2, shuffle=True)
+    trainloader = data.DataLoader(traindata, batch_size=args.batch_size, num_workers=1, shuffle=True)
     valdata = data_loader('val', transform=input_transform, target_transform=target_transform)
-    valloader = data.DataLoader(valdata, batch_size=args.batch_size, num_workers=2, shuffle=False)
+    valloader = data.DataLoader(valdata, batch_size=args.batch_size, num_workers=1, shuffle=False)
 
     n_classes = traindata.n_classes
     n_trainsamples = len(traindata)
