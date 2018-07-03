@@ -259,9 +259,9 @@ def main(args):
                 os.remove(os.path.join(ROOT_ADDRESS, "results_parts/{}_{}_{}_{}_optimizer_best.pkl".format(args.arch, args.dataset, best_epoch, float2str(best_mIoU))))
             best_mIoU = this_mIoU
             best_epoch = epoch + 1
-            torch.save(model, os.path.join(ROOT_ADDRESS, "results_parts/{}_{}_{}_best_{}.pkl".format(args.arch, args.dataset, best_epoch, float2str(best_mIoU))))
+            torch.save(model, os.path.join(ROOT_ADDRESS, "results_parts/{}_{}_{}_{}_best.pkl".format(args.arch, args.dataset, best_epoch, float2str(best_mIoU))))
             torch.save({'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict()},
-                       os.path.join(ROOT_ADDRESS, "results_parts/{}_{}_{}_optimizer_best_{}.pkl".format(args.arch, args.dataset, best_epoch, float2str(best_mIoU))))
+                       os.path.join(ROOT_ADDRESS, "results_parts/{}_{}_{}_{}_optimizer_best.pkl".format(args.arch, args.dataset, best_epoch, float2str(best_mIoU))))
             
 # Incase one want to freeze BN params
 def set_bn_eval(m):
