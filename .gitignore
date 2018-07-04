@@ -1,4 +1,5 @@
 results/
+results_parts/
 __pycache__/
 .DS_Store
 # Byte-compiled / optimized / DLL files
