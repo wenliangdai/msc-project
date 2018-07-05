@@ -32,20 +32,20 @@ args = dotdict({
     'freeze': False,
     'img_cols': 512,
     'img_rows': 512,
-    'iter_size': 2,
-    'lr': 0.0004,
+    'iter_size': 1,
+    'lr': 0.0005,
     'log_size': 100,
     'epoch_log_size': 20,
     'manual_seed': 0,
     'model_path': None,
     'best_model_path': None,
-    'momentum': 0.95,
+    'momentum': 0.90,
     'epochs': 150,
     'optim': 'SGD',
     'output_stride': '16',
     'restore': False,
     'split': 'train_aug',
-    'weight_decay': 0.0001
+    'weight_decay': 0.0005
 })
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
