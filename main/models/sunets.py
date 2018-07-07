@@ -8,6 +8,7 @@ from torch import nn
 
 mom_bn = 0.01
 output_stride_ref = {'32':3, '16':2, '8':1}
+sunet64_path = './pretrained/SUNets/checkpoint_64_2441_residual.pth.tar'
 
 def sunet(kind='64', num_classes=21, output_stride='32'):
     if kind == '64':
@@ -23,10 +24,12 @@ class Dilated_sunet64(nn.Module):
     def __init__(self, pretrained=False, num_classes=21, ignore_index=-1, weight=None, output_stride='16'):
         super(Dilated_sunet64, self).__init__()
         self.num_classes = num_classes
-        # TODO:
-        # if pretrained:
-            # load saved state_dict
         sunet64 = sunet('64', num_classes=num_classes, output_stride=output_stride)
+
+        if pretrained:
+            # load saved state_dict
+            checkpoint = torch.load(sunet64_path)
+            sunet64.load_state_dict(checkpoint['state_dict'])
 
         self.features = sunet64._modules['features'] # A Sequential
 
