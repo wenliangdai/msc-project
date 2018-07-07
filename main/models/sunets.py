@@ -8,7 +8,7 @@ from torch import nn
 
 mom_bn = 0.01
 output_stride_ref = {'32':3, '16':2, '8':1}
-sunet64_path = './pretrained/SUNets/checkpoint_64_2441_residual.pth.tar'
+sunet64_path = '/home/wenlidai/sunets-reproduce/main/models/pretrained/SUNets/checkpoint_64_2441_residual.pth.tar'
 
 def sunet(kind='64', num_classes=21, output_stride='32'):
     if kind == '64':
