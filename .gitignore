@@ -1,4 +1,5 @@
 *.tar
+*.pth
 results.tar
 results/
 results_parts/
