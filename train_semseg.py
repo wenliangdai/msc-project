@@ -37,13 +37,13 @@ args = dotdict({
     'log_size': 800,
     'epoch_log_size': 20,
     'manual_seed': 0,
-    'model_path': None,
-    'best_model_path': None,
+    'model_path': 'sunet64_sbd_100.pkl',
+    'best_model_path': 'sunet64_sbd_102_0.31_best.pkl',
     'momentum': 0.90,
     'epochs': 120,
     'optim': 'SGD',
     'output_stride': '16',
-    'restore': False,
+    'restore': True,
     'split': 'train_aug',
     'weight_decay': 0.0005
 })
@@ -112,7 +112,7 @@ def main(args):
     if args.model_path:
         model_name = args.model_path.split('.')
         checkpoint_name = model_name[0] + '_optimizer.pkl'
-        checkpoint = torch.load(checkpoint_name)
+        checkpoint = torch.load(os.path.join(ROOT_ADDRESS, 'results', checkpoint_name))
         optm = checkpoint['optimizer']
         model.load_state_dict(checkpoint['state_dict'])
         split_str = model_name[0].split('_')
@@ -130,7 +130,7 @@ def main(args):
         mIoU_test = saved_accuracy["I_test"][:epochs_done,:]
     
     if args.best_model_path:
-        best_model_name = args.best_model_path.split('.')[0].split('_')
+        best_model_name = args.best_model_path.split('_')
         best_mIoU = float(best_model_name[-2])
         best_epoch = int(best_model_name[-3])
 
