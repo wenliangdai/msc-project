@@ -31,14 +31,11 @@ class Dilated_sunet64(nn.Module):
             # load saved state_dict
             temp_state_dict = torch.load(sunet64_path)
             new_state_dict = OrderedDict()
-            for k, v in temp_state_dict.items():
-                print(k)
-                print(v)
-                sys.exit()
+            for k, v in temp_state_dict['state_dict'].items():
                 name = k[7:] # remove `module.`
                 new_state_dict[name] = v
 
-            sunet64.load_state_dict(new_state_dict['state_dict'])
+            sunet64.load_state_dict(new_state_dict)
 
         self.features = sunet64._modules['features'] # A Sequential
 
