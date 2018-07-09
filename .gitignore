@@ -3,6 +3,7 @@
 results.tar
 results/
 results_parts/
+results_pretrained/
 __pycache__/
 .DS_Store
 # Byte-compiled / optimized / DLL files

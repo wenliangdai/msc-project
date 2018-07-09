@@ -29,12 +29,17 @@ class Dilated_sunet64(nn.Module):
 
         if pretrained:
             # load saved state_dict
-            temp_state_dict = torch.load(sunet64_path)
-            new_state_dict = OrderedDict()
-            for k, v in temp_state_dict['state_dict'].items():
+            pretrained_state_dict = torch.load(sunet64_path)
+            partial_state_dict = OrderedDict()
+            for i, (k, v) in enumerate(pretrained_state_dict['state_dict'].items()):
+                # print(i)
+                if i == len(pretrained_state_dict['state_dict'].items()) - 2:
+                    break
                 name = k[7:] # remove `module.`
-                new_state_dict[name] = v
-
+                partial_state_dict[name] = v
+            
+            new_state_dict = sunet64.state_dict()
+            new_state_dict.update(partial_state_dict)
             sunet64.load_state_dict(new_state_dict)
 
         self.features = sunet64._modules['features'] # A Sequential
