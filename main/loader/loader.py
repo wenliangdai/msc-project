@@ -42,7 +42,7 @@ class VOC(data.Dataset):
 
         img_path, mask_path = self.imgs[index]
         img = Image.open(img_path).convert('RGB')
-        if self.mode == 'train':
+        if mask_path.split('.')[-1] == 'mat':
             mask = sio.loadmat(mask_path)['GTcls']['Segmentation'][0][0]
             mask = Image.fromarray(mask.astype(np.uint8)).convert('P')
         else:
@@ -156,27 +156,34 @@ class VOC(data.Dataset):
         assert mode in ['train', 'val', 'test']
         items = []
         sbd_path = get_data_path('sbd')
+        sbd_img_path = os.path.join(sbd_path, 'dataset', 'img')
+        sbd_mask_path = os.path.join(sbd_path, 'dataset', 'cls')
         voc_path = get_data_path('pascal')
         voc_test_path = get_data_path('pascal_test')
+        voc_img_path = os.path.join(voc_path, 'JPEGImages')
+        voc_mask_path = os.path.join(voc_path, 'SegmentationClass')
         
-        # Train with SBD training data
+        # Train data = VOC_train + SBD_train + SBD_val
         if mode == 'train':
-            img_path = os.path.join(sbd_path, 'dataset', 'img')
-            mask_path = os.path.join(sbd_path, 'dataset', 'cls')
-            data_list = [l.strip('\n') for l in open(os.path.join(
-                sbd_path, 'dataset', 'train.txt')).readlines()]
-            for it in data_list:
-                item = (os.path.join(img_path, it + '.jpg'), os.path.join(mask_path, it + '.mat'))
+            sbd_data_list = [l.strip('\n') for l in open(os.path.join(
+                sbd_path, 'dataset', 'trainval.txt')).readlines()]
+            for it in sbd_data_list:
+                item = (os.path.join(sbd_img_path, it + '.jpg'), os.path.join(sbd_mask_path, it + '.mat'))
                 items.append(item)
-        # Validate/Test with SBD validate/test data
+            
+            voc_data_list = [l.strip('\n') for l in open(os.path.join(
+                voc_path, 'ImageSets', 'Segmentation', 'train.txt')).readlines()]
+            for it in voc_data_list:
+                item = (os.path.join(voc_img_path, it + '.jpg'), os.path.join(voc_mask_path, it + '.png'))
+                items.append(item)
+        # Val data = VOC_val
         elif mode == 'val':
-            img_path = os.path.join(voc_path, 'JPEGImages')
-            mask_path = os.path.join(voc_path, 'SegmentationClass')
             data_list = [l.strip('\n') for l in open(os.path.join(
-                voc_path, 'ImageSets', 'Segmentation', 'seg11valid.txt')).readlines()]
+                voc_path, 'ImageSets', 'Segmentation', 'val.txt')).readlines()]
             for it in data_list:
-                item = (os.path.join(img_path, it + '.jpg'), os.path.join(mask_path, it + '.png'))
+                item = (os.path.join(voc_img_path, it + '.jpg'), os.path.join(voc_mask_path, it + '.png'))
                 items.append(item)
+        # Test data = VOC_test
         else:
             img_path = os.path.join(voc_test_path, 'JPEGImages')
             data_list = [l.strip('\n') for l in open(os.path.join(

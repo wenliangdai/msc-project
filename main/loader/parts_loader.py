@@ -177,21 +177,21 @@ class VOC_parts(data.Dataset):
         
         return items
 
-    def get_part_index(self, part_name):
-        '''
-        coarse partition:
-        head = 1
-        torso = 2
-        arm = 3
-        leg = 4
-        (background = 0)
-        There are 24 finer parts in total
-        '''
-        if part_name in ['head','leye','reye','lear','rear','lebrow','rebrow','nose','mouth','hair']:
-            return 1
-        if part_name in ['torso','neck']:
-            return 2
-        if part_name in ['llarm','luarm','lhand','rlarm','ruarm','rhand']:
-            return 3
-        if part_name in ['llleg','luleg','lfoot','rlleg','ruleg','rfoot']:
-            return 4
+    # def get_part_index(self, part_name):
+    #     '''
+    #     coarse partition:
+    #     head = 1
+    #     torso = 2
+    #     arm = 3
+    #     leg = 4
+    #     (background = 0)
+    #     There are 24 finer parts in total
+    #     '''
+    #     if part_name in ['head','leye','reye','lear','rear','lebrow','rebrow','nose','mouth','hair']:
+    #         return 1
+    #     if part_name in ['torso','neck']:
+    #         return 2
+    #     if part_name in ['llarm','luarm','lhand','rlarm','ruarm','rhand']:
+    #         return 3
+    #     if part_name in ['llleg','luleg','lfoot','rlleg','ruleg','rfoot']:
+    #         return 4

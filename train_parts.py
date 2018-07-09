@@ -33,19 +33,19 @@ args = dotdict({
     'img_cols': 512,
     'img_rows': 512,
     'iter_size': 1,
-    'lr': 0.001,
+    'lr': 0.0005,
     'log_size': 100,
     'epoch_log_size': 20,
     'manual_seed': 0,
     'model_path': None,
     'best_model_path': None,
-    'momentum': 0.95,
-    'epochs': 120,
+    'momentum': 0.90,
+    'epochs': 150,
     'optim': 'SGD',
     'output_stride': '16',
     'restore': False,
     'split': 'train_aug',
-    'weight_decay': 0.0001
+    'weight_decay': 0.0005
 })
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -307,6 +307,8 @@ def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
         classwise_gtpixels = torch.FloatTensor([classwise_gtpixels]).to(device)
         classwise_predpixels = torch.FloatTensor([classwise_predpixels]).to(device)
 
+        total_valid_pixel = float(total_valid_pixel.sum(0).data.cpu().numpy())
+
         total_loss = loss.sum()
         total_loss = total_loss / float(total_valid_pixel)
         total_loss = total_loss / float(args.iter_size)
@@ -360,6 +362,8 @@ def val(model, criterion, valloader, epoch, data):
             classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc]).to(device)
             classwise_gtpixels = torch.FloatTensor([classwise_gtpixels]).to(device)
             classwise_predpixels = torch.FloatTensor([classwise_predpixels]).to(device)
+
+            total_valid_pixel = float(total_valid_pixel.sum(0).data.cpu().numpy())
 
             l_avg_test += loss.sum().data.cpu().numpy()
             steps_test += total_valid_pixel
