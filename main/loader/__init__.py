@@ -1,5 +1,5 @@
 from main.loader.pascal_voc_loader import *
-from main.loader.loader import *
+from main.loader.semseg_loader import *
 from main.loader.parts_loader import *
 
 def get_loader(name):
@@ -9,6 +9,6 @@ def get_loader(name):
     """
     return {
         'pascal': pascalVOCLoader,
-        'sbd': VOC,
+        'sbd': VOC_Loader,
         'parts': VOC_parts
     }[name]

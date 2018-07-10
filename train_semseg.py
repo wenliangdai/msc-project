@@ -70,12 +70,6 @@ def main(args):
 
     # Setup Dataloader
     data_loader = get_loader(args.dataset)
-    # data_path = get_data_path(args.dataset)
-
-    # traindata = data_loader(data_path, split=args.split, is_transform=True, img_size=(args.img_rows, args.img_cols))
-    # trainloader = data.DataLoader(traindata, batch_size=args.batch_size, num_workers=7, shuffle=True)
-    # valdata = data_loader(data_path, split="val", is_transform=False, img_size=(args.img_rows, args.img_cols))
-    # valloader = data.DataLoader(valdata, batch_size=args.batch_size, num_workers=7, shuffle=False)
 
     mean_std = ([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     input_transform = standard_transforms.Compose([

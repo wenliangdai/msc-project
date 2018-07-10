@@ -14,7 +14,6 @@ from torchvision.transforms import Compose, Normalize, ToTensor, Resize
 
 from main import get_data_path
 
-
 class VOC_parts(data.Dataset):
     def __init__(self, mode, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False):
         self.imgs = self.preprocess(mode=mode)
