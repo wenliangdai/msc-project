@@ -9,7 +9,7 @@ import torch
 from PIL import Image, ImageMath
 from torch.utils import data
 
-import loader
+import main.loader.loader as loader
 from main import get_data_path
 from torchvision.transforms import Compose, Normalize, Resize, ToTensor
 
