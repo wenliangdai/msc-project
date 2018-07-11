@@ -425,7 +425,7 @@ if __name__ == '__main__':
                         help='Restore Optimizer params')
     parser.add_argument('--epoch_log_size', nargs='?', type=str, default=20,
                         help='Every [epoch_log_size] iterations to print loss in each epoch')
-    parser.add_argument('--pretrained', action='store_true'
+    parser.add_argument('--pretrained', action='store_true',
                         help='Use pretrained ImageNet initialization or not')
 
     global args
