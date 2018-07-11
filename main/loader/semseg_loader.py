@@ -4,18 +4,17 @@ import random
 
 import matplotlib.pyplot as plt
 import numpy as np
-# import scipy.misc as m
 import scipy.io as sio
 import torch
 from PIL import Image, ImageMath
 from torch.utils import data
 
-from Loader import Loader
+import loader
 from main import get_data_path
 from torchvision.transforms import Compose, Normalize, Resize, ToTensor
 
 
-class VOC_Loader(Loader):
+class VOC_Loader(loader.Loader):
     def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False):
         super(VOC_Loader, self).__init__(
             mode, 

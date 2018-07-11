@@ -8,10 +8,7 @@
   "sbd": {
     "data_path": "/home/wenlidai/datasets/benchmark_RELEASE/"
   },
-  "coco": {
-    "data_path": "/home/wenlidai/datasets/coco/"
-  },
   "parts": {
-    "data_path": "/home/wenlidai/datasets/VOC2012/"
+    "data_path": "/home/wenlidai/datasets/LIP/"
   }
 }

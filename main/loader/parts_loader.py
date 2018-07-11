@@ -149,8 +149,13 @@ class VOC_parts(data.Dataset):
             return rgb
 
     def get_pascal_labels(self):
-        # 7 classes
-        return np.asarray([[0,0,0], [128,0,0], [0,128,0], [128,128,0], [0,0,128], [128,0,128], [0,128,128]])
+        # 20 classes
+        return np.asarray([
+            [0,0,0], [128,0,0], [0,128,0], [128,128,0], [0,0,128], [128,0,128],
+            [0,128,128], [128,128,128], [64,0,0], [192,0,0], [64,128,0], [192,128,0],
+            [64,0,128], [192,0,128], [64,128,128], [192,128,128], [0,64,0], [128,64,0],
+            [0,192,0], [128,192,0]
+        ])
 
     def preprocess(self, mode):
         assert mode in ['train', 'val', 'test']
@@ -158,18 +163,18 @@ class VOC_parts(data.Dataset):
         data_path = get_data_path('parts')
         
         if mode == 'train':
-            img_path = os.path.join(data_path, 'JPEGImages')
-            mask_path = os.path.join(data_path, 'ImageSets', 'Person', 'gt')
+            img_path = os.path.join(data_path, 'multi-person', 'Training', 'Images')
+            mask_path = os.path.join(data_path, 'multi-person', 'Training', 'Category_ids')
             data_list = [l.strip('\n') for l in open(os.path.join(
-                data_path, 'ImageSets', 'Person', 'train.txt')).readlines()]
+                data_path, 'multi-person', 'Training', 'train_id.txt')).readlines()]
             for it in data_list:
                 item = (os.path.join(img_path, it + '.jpg'), os.path.join(mask_path, it + '.png'))
                 items.append(item)
         elif mode == 'val':
-            img_path = os.path.join(data_path, 'JPEGImages')
-            mask_path = os.path.join(data_path, 'ImageSets', 'Person', 'gt')
+            img_path = os.path.join(data_path, 'multi-person', 'Validation', 'Images')
+            mask_path = os.path.join(data_path, 'multi-person', 'Validation', 'Category_ids')
             data_list = [l.strip('\n') for l in open(os.path.join(
-                data_path, 'ImageSets', 'Person', 'val.txt')).readlines()]
+                data_path, 'multi-person', 'Validation', 'val_id.txt')).readlines()]
             for it in data_list:
                 item = (os.path.join(img_path, it + '.jpg'), os.path.join(mask_path, it + '.png'))
                 items.append(item)
