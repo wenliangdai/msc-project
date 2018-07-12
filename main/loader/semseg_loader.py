@@ -1,5 +1,6 @@
 import collections
 import os
+import sys
 import random
 
 import matplotlib.pyplot as plt
@@ -9,12 +10,13 @@ import torch
 from PIL import Image, ImageMath
 from torch.utils import data
 
-import main.loader.loader as loader
 from main import get_data_path
 from torchvision.transforms import Compose, Normalize, Resize, ToTensor
 
+sys.path.append('/home/wenlidai/sunets-reproduce/main/loader')
+from BaseLoader import Loader
 
-class VOC_Loader(loader.Loader):
+class VOC_Loader(Loader):
     def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False):
         super(VOC_Loader, self).__init__(
             mode, 
