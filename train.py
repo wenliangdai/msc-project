@@ -12,7 +12,7 @@ from torch import nn
 from torch.optim import lr_scheduler
 from torch.utils import data
 
-import torchvision.transforms as standard_transforms
+import torchvision.transforms as transforms
 import transforms as extended_transforms
 from loss import prediction_stat
 from main import get_data_path
@@ -71,15 +71,15 @@ def main(args):
     data_loader = get_loader(args.dataset)
 
     mean_std = ([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    input_transform = standard_transforms.Compose([
-        standard_transforms.ToTensor(),
-        standard_transforms.Normalize(*mean_std)
+    input_transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(*mean_std)
     ])
     target_transform = extended_transforms.MaskToTensor()
 
-    traindata = data_loader('train', transform=input_transform, target_transform=target_transform, do_transform=True)
+    traindata = data_loader('train', n_classes=args.n_classes, transform=input_transform, target_transform=target_transform, do_transform=True)
     trainloader = data.DataLoader(traindata, batch_size=args.batch_size, num_workers=2, shuffle=True)
-    valdata = data_loader('val', transform=input_transform, target_transform=target_transform)
+    valdata = data_loader('val', n_classes=args.n_classes, transform=input_transform, target_transform=target_transform)
     valloader = data.DataLoader(valdata, batch_size=args.batch_size, num_workers=2, shuffle=False)
 
     n_classes = traindata.n_classes
@@ -427,6 +427,8 @@ if __name__ == '__main__':
                         help='Every [epoch_log_size] iterations to print loss in each epoch')
     parser.add_argument('--pretrained', action='store_true',
                         help='Use pretrained ImageNet initialization or not')
+    parser.add_argument('--n_classes', nargs='?', type=int, default=21,
+                        help='number of classes of the labels')
 
     global args
     args = parser.parse_args()
