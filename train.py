@@ -407,7 +407,7 @@ if __name__ == '__main__':
                         help='Batch Size')
     parser.add_argument('--lr', nargs='?', type=float, default=0.0005,
                         help='Learning Rate')
-    parser.add_argument('--manualSeed', default=0, type=int,
+    parser.add_argument('--manual_seed', default=0, type=int,
                         help='manual seed')
     parser.add_argument('--iter_size', type=int, default=1,
                         help='number of batches per weight updates')
