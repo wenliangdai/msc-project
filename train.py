@@ -433,6 +433,8 @@ if __name__ == '__main__':
                         help='Use pretrained ImageNet initialization or not')
     parser.add_argument('--n_classes', nargs='?', type=int, default=21,
                         help='number of classes of the labels')
+    parser.add_argument('--optim', nargs='?', type=str, default='SGD',
+                        help='Optimizer to use [\'SGD, Nesterov etc\']')
 
     global args
     args = parser.parse_args()
