@@ -1,6 +1,7 @@
 *.tar
 *.pth
 results.tar
+results_temp/
 results/
 results_parts/
 results_pretrained/
