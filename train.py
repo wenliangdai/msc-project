@@ -22,7 +22,7 @@ from utils import dotdict, float2str
 
 # paths
 ROOT = '/home/wenlidai/sunets-reproduce/'
-RESULT = 'results_semseg'
+RESULT = 'results_'
 
 # args = dotdict({
 #     'arch': 'sunet64',
@@ -134,49 +134,49 @@ def main(args):
         best_epoch = int(best_model_name[-3])
 
     # Learning rates: For new layers (such as final layer), we set lr to be 10x the learning rate of layers already trained
-    # bias_10x_params = filter(lambda x: ('bias' in x[0]) and ('final' in x[0]) and ('conv' in x[0]),
-    #                      model.named_parameters())
-    # bias_10x_params = list(map(lambda x: x[1], bias_10x_params))
+    bias_10x_params = filter(lambda x: ('bias' in x[0]) and ('final' in x[0]) and ('conv' in x[0]),
+                         model.named_parameters())
+    bias_10x_params = list(map(lambda x: x[1], bias_10x_params))
 
-    # bias_params = filter(lambda x: ('bias' in x[0]) and ('final' not in x[0]),
-    #                      model.named_parameters())
-    # bias_params = list(map(lambda x: x[1], bias_params))
+    bias_params = filter(lambda x: ('bias' in x[0]) and ('final' not in x[0]),
+                         model.named_parameters())
+    bias_params = list(map(lambda x: x[1], bias_params))
 
-    # nonbias_10x_params = filter(lambda x: (('bias' not in x[0]) or ('bn' in x[0])) and ('final' in x[0]),
-    #                      model.named_parameters())
-    # nonbias_10x_params = list(map(lambda x: x[1], nonbias_10x_params))
+    nonbias_10x_params = filter(lambda x: (('bias' not in x[0]) or ('bn' in x[0])) and ('final' in x[0]),
+                         model.named_parameters())
+    nonbias_10x_params = list(map(lambda x: x[1], nonbias_10x_params))
 
-    # nonbias_params = filter(lambda x: ('bias' not in x[0]) and ('final' not in x[0]),
-    #                         model.named_parameters())
-    # nonbias_params = list(map(lambda x: x[1], nonbias_params))
+    nonbias_params = filter(lambda x: ('bias' not in x[0]) and ('final' not in x[0]),
+                            model.named_parameters())
+    nonbias_params = list(map(lambda x: x[1], nonbias_params))
 
-    # optimizer = torch.optim.SGD([{'params': bias_params, 'lr': args.lr},
-    #                              {'params': bias_10x_params, 'lr': args.lr},
-    #                              {'params': nonbias_10x_params, 'lr': args.lr},
-    #                              {'params': nonbias_params, 'lr': args.lr},],
-    #                             lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay,
-    #                             nesterov=(args.optim == 'Nesterov'))
-    # num_param_groups = 4
+    optimizer = torch.optim.SGD([{'params': bias_params, 'lr': args.lr},
+                                 {'params': bias_10x_params, 'lr': args.lr},
+                                 {'params': nonbias_10x_params, 'lr': args.lr},
+                                 {'params': nonbias_params, 'lr': args.lr},],
+                                lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay,
+                                nesterov=(args.optim == 'Nesterov'))
+    num_param_groups = 4
 
-    optimizer = torch.optim.Adam(model.parameters(), weight_decay=args.weight_decay)
+    # optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 
     # Setting up scheduler
     if args.model_path and args.restore:
         # Here we restore all states of optimizer
         optimizer.load_state_dict(optm)
-        # total_iters = n_iters_per_epoch * args.epochs
-        # lambda1 = lambda step: 0.5 + 0.5 * math.cos(np.pi * step / total_iters)
-        # scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=[lambda1]*num_param_groups, last_epoch=epochs_done*n_iters_per_epoch)
-        scheduler = lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1, last_epoch=epochs_done)
+        total_iters = n_iters_per_epoch * args.epochs
+        lambda1 = lambda step: 0.5 + 0.5 * math.cos(np.pi * step / total_iters)
+        scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=[lambda1]*num_param_groups, last_epoch=epochs_done*n_iters_per_epoch)
+        # scheduler = lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1, last_epoch=epochs_done)
     else:
-        scheduler = lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
-    #     # Here we simply restart the training
-    #     if args.T0:
-    #         total_iters = args.T0 * n_iters_per_epoch
-    #     else:
-    #         total_iters = ((args.epochs - epochs_done) * n_iters_per_epoch)
-    #     lambda1 = lambda step: 0.5 + 0.5 * math.cos(np.pi * step / total_iters)
-    #     scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=[lambda1]*num_param_groups)
+        # scheduler = lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
+        # Here we simply restart the training
+        if args.T0:
+            total_iters = args.T0 * n_iters_per_epoch
+        else:
+            total_iters = ((args.epochs - epochs_done) * n_iters_per_epoch)
+        lambda1 = lambda step: 0.5 + 0.5 * math.cos(np.pi * step / total_iters)
+        scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=[lambda1]*num_param_groups)
 
     
 
@@ -184,7 +184,7 @@ def main(args):
     global l_avg_test, totalclasswise_pixel_acc_test, totalclasswise_gtpixels_test, totalclasswise_predpixels_test
     global steps, steps_test
 
-    # scheduler.step()
+    scheduler.step()
 
     criterion = nn.CrossEntropyLoss(size_average=False, ignore_index=traindata.ignore_index)
 
@@ -202,7 +202,7 @@ def main(args):
         steps = 0
         steps_test = 0
         
-        scheduler.step()
+        # scheduler.step()
         train(model, optimizer, criterion, trainloader, epoch, scheduler, traindata)
         val(model, criterion, valloader, epoch, valdata)
 
@@ -259,6 +259,7 @@ def main(args):
 
         # save the best model
         this_mIoU = np.mean(totalclasswise_pixel_acc_test / (totalclasswise_gtpixels_test + totalclasswise_predpixels_test - totalclasswise_pixel_acc_test), axis=1)[0]
+        print('Epoch {}: val mIoU = {}'.format(epoch + 1, this_mIoU))
         if this_mIoU > best_mIoU:
             if best_mIoU > 0:
                 os.remove(os.path.join(ROOT, RESULT, "{}_{}_{}_{}_best.pkl".format(args.arch, args.dataset, best_epoch, float2str(best_mIoU))))
@@ -329,11 +330,11 @@ def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
         totalclasswise_gtpixels += classwise_gtpixels.sum(0).data.cpu().numpy()
         totalclasswise_predpixels += classwise_predpixels.sum(0).data.cpu().numpy()
 
-        if (i + 1) % args.epoch_log_size == 0:
-            print("Epoch [%d/%d] Loss: %.4f" % (epoch + 1, args.epochs, loss.sum().item()))
+        # if (i + 1) % args.epoch_log_size == 0:
+        #     print("Epoch [%d/%d] Loss: %.4f" % (epoch + 1, args.epochs, loss.sum().item()))
 
-        # if (i + 1) % args.iter_size == 0:
-        #     scheduler.step()
+        if (i + 1) % args.iter_size == 0:
+            scheduler.step()
 
         if (i + 1) % args.log_size == 0:
             pickle.dump(images[0].cpu().numpy(),
@@ -432,4 +433,5 @@ if __name__ == '__main__':
 
     global args
     args = parser.parse_args()
+    RESULT = RESULT + args.dataset
     main(args)
