@@ -172,10 +172,10 @@ def main(args):
     else:
         # scheduler = lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
         # Here we simply restart the training
-        if args.T0:
-            total_iters = args.T0 * n_iters_per_epoch
-        else:
-            total_iters = ((args.epochs - epochs_done) * n_iters_per_epoch)
+        # if args.T0:
+        #     total_iters = args.T0 * n_iters_per_epoch
+        # else:
+        total_iters = ((args.epochs - epochs_done) * n_iters_per_epoch)
         lambda1 = lambda step: 0.5 + 0.5 * math.cos(np.pi * step / total_iters)
         scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=[lambda1]*num_param_groups)
 
