@@ -92,7 +92,8 @@ def main(args):
         n_classes=n_classes, 
         ignore_index=traindata.ignore_index, 
         output_stride=args.output_stride,
-        pretrained=args.pretrained
+        pretrained=args.pretrained,
+        momentum_bn=args.momentum_bn
     ).to(device)
 
     epochs_done=0
@@ -416,6 +417,8 @@ if __name__ == '__main__':
                         help='iteration period of logging segmented images')
     parser.add_argument('--momentum', nargs='?', type=float, default=0.95,
                         help='Momentum for SGD')
+    parser.add_argument('--momentum_bn', nargs='?', type=float, default=0.01,
+                        help='Momentum for BN')
     parser.add_argument('--weight_decay', nargs='?', type=float, default=1e-4,
                         help='Weight decay')
     parser.add_argument('--output_stride', nargs='?', type=str, default='16',
