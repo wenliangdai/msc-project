@@ -30,8 +30,6 @@ def main(args):
     vis.line(np.vstack((M.T, Mtest.T)).T, x, env='mean_class_acc', opts=dict(title="Mean Accuracy", legend=['train', 'val']))
     vis.line(np.vstack((I.T, Itest.T)).T, x, env='IoU', opts=dict(title="Mean IoU", legend=['train', 'val']))
 
-
-
     if args.images:
         onlyfiles = [f for f in listdir(os.path.join(ROOT_ADDRESS, RESULTS_FOLDER, 'saved_val_images'))]
         onlyfiles.sort()

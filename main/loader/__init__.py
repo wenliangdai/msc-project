@@ -1,14 +1,8 @@
-from main.loader.pascal_voc_loader import *
-from main.loader.loader import *
-from main.loader.parts_loader import *
+from main.loader.loaders import *
 
 def get_loader(name):
-    """get_loader
-
-    :param name:
-    """
     return {
-        'pascal': pascalVOCLoader,
-        'sbd': VOC,
-        'parts': VOC_parts
+        'sbd': SEMSEG_LOADER,
+        'parts': PASCAL_PARTS_LOADER,
+        'lip': LIP_LOADER
     }[name]

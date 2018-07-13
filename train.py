@@ -12,7 +12,7 @@ from torch import nn
 from torch.optim import lr_scheduler
 from torch.utils import data
 
-import torchvision.transforms as standard_transforms
+import torchvision.transforms as transforms
 import transforms as extended_transforms
 from loss import prediction_stat
 from main import get_data_path
@@ -20,33 +20,32 @@ from main.loader import get_loader
 from main.models import get_model
 from utils import dotdict, float2str
 
-ROOT_ADDRESS = '/home/wenlidai/sunets-reproduce/'
-# ROOT_ADDRESS = './'
+# paths
+ROOT = '/home/wenlidai/sunets-reproduce/'
+RESULT = 'results_'
 
-# torch.set_printoptions(threshold=1e5)
-
-args = dotdict({
-    'arch': 'sunet64',
-    'batch_size': 10,
-    'dataset': 'sbd',
-    'freeze': False,
-    'img_cols': 512,
-    'img_rows': 512,
-    'iter_size': 1,
-    'lr': 0.0005,
-    'log_size': 800,
-    'epoch_log_size': 20,
-    'manual_seed': 0,
-    'model_path': 'sunet64_sbd_100.pkl',
-    'best_model_path': 'sunet64_sbd_102_0.31_best.pkl',
-    'momentum': 0.90,
-    'epochs': 120,
-    'optim': 'SGD',
-    'output_stride': '16',
-    'restore': True,
-    'split': 'train_aug',
-    'weight_decay': 0.0005
-})
+# args = dotdict({
+#     'arch': 'sunet64',
+#     'batch_size': 10,
+#     'dataset': 'sbd',
+#     'freeze': False,
+#     'img_cols': 512,
+#     'img_rows': 512,
+#     'iter_size': 1,
+#     'lr': 0.0005,
+#     'log_size': 800,
+#     'epoch_log_size': 20,
+#     'manual_seed': 0,
+#     'model_path': 'sunet64_sbd_100.pkl',
+#     'best_model_path': 'sunet64_sbd_102_0.31_best.pkl',
+#     'momentum': 0.90,
+#     'epochs': 120,
+#     'optim': 'SGD',
+#     'output_stride': '16',
+#     'restore': True,
+#     'split': 'train_aug',
+#     'weight_decay': 0.0005
+# })
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -63,30 +62,24 @@ def main(args):
         cudnn.benchmark = True
     
     # Set up results folder
-    if not os.path.exists(os.path.join(ROOT_ADDRESS, 'results/saved_val_images')):
-        os.makedirs(os.path.join(ROOT_ADDRESS, 'results/saved_val_images'))
-    if not os.path.exists(os.path.join(ROOT_ADDRESS, 'results/saved_train_images')):
-        os.makedirs(os.path.join(ROOT_ADDRESS, 'results/saved_train_images'))
+    if not os.path.exists(os.path.join(ROOT, RESULT, 'saved_val_images')):
+        os.makedirs(os.path.join(ROOT, RESULT, 'saved_val_images'))
+    if not os.path.exists(os.path.join(ROOT, RESULT, 'saved_train_images')):
+        os.makedirs(os.path.join(ROOT, RESULT, 'saved_train_images'))
 
     # Setup Dataloader
     data_loader = get_loader(args.dataset)
-    # data_path = get_data_path(args.dataset)
-
-    # traindata = data_loader(data_path, split=args.split, is_transform=True, img_size=(args.img_rows, args.img_cols))
-    # trainloader = data.DataLoader(traindata, batch_size=args.batch_size, num_workers=7, shuffle=True)
-    # valdata = data_loader(data_path, split="val", is_transform=False, img_size=(args.img_rows, args.img_cols))
-    # valloader = data.DataLoader(valdata, batch_size=args.batch_size, num_workers=7, shuffle=False)
 
     mean_std = ([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    input_transform = standard_transforms.Compose([
-        standard_transforms.ToTensor(),
-        standard_transforms.Normalize(*mean_std)
+    input_transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(*mean_std)
     ])
     target_transform = extended_transforms.MaskToTensor()
 
-    traindata = data_loader('train', transform=input_transform, target_transform=target_transform, do_transform=True)
+    traindata = data_loader('train', n_classes=args.n_classes, transform=input_transform, target_transform=target_transform, do_transform=True)
     trainloader = data.DataLoader(traindata, batch_size=args.batch_size, num_workers=2, shuffle=True)
-    valdata = data_loader('val', transform=input_transform, target_transform=target_transform)
+    valdata = data_loader('val', n_classes=args.n_classes, transform=input_transform, target_transform=target_transform)
     valloader = data.DataLoader(valdata, batch_size=args.batch_size, num_workers=2, shuffle=False)
 
     n_classes = traindata.n_classes
@@ -94,7 +87,14 @@ def main(args):
     n_iters_per_epoch = np.ceil(n_trainsamples / float(args.batch_size * args.iter_size))
 
     # Setup Model
-    model = get_model(args.arch, n_classes, ignore_index=traindata.ignore_index, output_stride=args.output_stride).to(device)
+    model = get_model(
+        name=args.arch, 
+        n_classes=n_classes, 
+        ignore_index=traindata.ignore_index, 
+        output_stride=args.output_stride,
+        pretrained=args.pretrained,
+        momentum_bn=args.momentum_bn
+    ).to(device)
 
     epochs_done=0
     X=[]
@@ -112,13 +112,13 @@ def main(args):
     if args.model_path:
         model_name = args.model_path.split('.')
         checkpoint_name = model_name[0] + '_optimizer.pkl'
-        checkpoint = torch.load(os.path.join(ROOT_ADDRESS, 'results', checkpoint_name))
+        checkpoint = torch.load(os.path.join(ROOT, RESULT, checkpoint_name))
         optm = checkpoint['optimizer']
         model.load_state_dict(checkpoint['state_dict'])
         split_str = model_name[0].split('_')
         epochs_done = int(split_str[-1])
-        saved_loss = pickle.load( open(os.path.join(ROOT_ADDRESS, "results/saved_loss.p"), "rb") )
-        saved_accuracy = pickle.load( open(os.path.join(ROOT_ADDRESS, "results/saved_accuracy.p"), "rb") )
+        saved_loss = pickle.load( open(os.path.join(ROOT, RESULT, "saved_loss.p"), "rb") )
+        saved_accuracy = pickle.load( open(os.path.join(ROOT, RESULT, "saved_accuracy.p"), "rb") )
         X=saved_loss["X"][:epochs_done]
         Y=saved_loss["Y"][:epochs_done]
         Y_test=saved_loss["Y_test"][:epochs_done]
@@ -159,6 +159,8 @@ def main(args):
                                 nesterov=(args.optim == 'Nesterov'))
     num_param_groups = 4
 
+    # optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+
     # Setting up scheduler
     if args.model_path and args.restore:
         # Here we restore all states of optimizer
@@ -166,14 +168,18 @@ def main(args):
         total_iters = n_iters_per_epoch * args.epochs
         lambda1 = lambda step: 0.5 + 0.5 * math.cos(np.pi * step / total_iters)
         scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=[lambda1]*num_param_groups, last_epoch=epochs_done*n_iters_per_epoch)
+        # scheduler = lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1, last_epoch=epochs_done)
     else:
+        # scheduler = lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
         # Here we simply restart the training
-        if args.T0:
-            total_iters = args.T0 * n_iters_per_epoch
-        else:
-            total_iters = ((args.epochs - epochs_done) * n_iters_per_epoch)
+        # if args.T0:
+        #     total_iters = args.T0 * n_iters_per_epoch
+        # else:
+        total_iters = ((args.epochs - epochs_done) * n_iters_per_epoch)
         lambda1 = lambda step: 0.5 + 0.5 * math.cos(np.pi * step / total_iters)
         scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=[lambda1]*num_param_groups)
+
+    
 
     global l_avg, totalclasswise_pixel_acc, totalclasswise_gtpixels, totalclasswise_predpixels
     global l_avg_test, totalclasswise_pixel_acc_test, totalclasswise_gtpixels_test, totalclasswise_predpixels_test
@@ -183,7 +189,6 @@ def main(args):
 
     criterion = nn.CrossEntropyLoss(size_average=False, ignore_index=traindata.ignore_index)
 
-    print('='*10, 'Entering epoch loop', '='*10, '\n')
     for epoch in range(epochs_done, args.epochs):
         print('='*10, 'Epoch %d' % (epoch + 1), '='*10)
         l_avg = 0
@@ -197,30 +202,31 @@ def main(args):
         steps = 0
         steps_test = 0
         
+        # scheduler.step()
         train(model, optimizer, criterion, trainloader, epoch, scheduler, traindata)
         val(model, criterion, valloader, epoch, valdata)
 
         # save the model every 5 epochs
         if (epoch + 1) % 5 == 0 or epoch == args.epochs - 1:
             if (epoch + 1) > 5:
-                os.remove(os.path.join(ROOT_ADDRESS, "results/{}_{}_{}.pkl".format(args.arch, args.dataset, epoch - 4)))
-                os.remove(os.path.join(ROOT_ADDRESS, "results/{}_{}_{}_optimizer.pkl".format(args.arch, args.dataset, epoch - 4)))
-            torch.save(model, os.path.join(ROOT_ADDRESS, "results/{}_{}_{}.pkl".format(args.arch, args.dataset, epoch + 1)))
+                os.remove(os.path.join(ROOT, RESULT, "{}_{}_{}.pkl".format(args.arch, args.dataset, epoch - 4)))
+                os.remove(os.path.join(ROOT, RESULT, "{}_{}_{}_optimizer.pkl".format(args.arch, args.dataset, epoch - 4)))
+            torch.save(model, os.path.join(ROOT, RESULT, "{}_{}_{}.pkl".format(args.arch, args.dataset, epoch + 1)))
             torch.save({'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict()},
-                       os.path.join(ROOT_ADDRESS, "results/{}_{}_{}_optimizer.pkl".format(args.arch, args.dataset, epoch + 1)))
+                       os.path.join(ROOT, RESULT, "{}_{}_{}_optimizer.pkl".format(args.arch, args.dataset, epoch + 1)))
         
         # remove old loss & accuracy files
-        if os.path.isfile(os.path.join(ROOT_ADDRESS, "results/saved_loss.p")):
-            os.remove(os.path.join(ROOT_ADDRESS, "results/saved_loss.p"))
-        if os.path.isfile(os.path.join(ROOT_ADDRESS, "results/saved_accuracy.p")):
-            os.remove(os.path.join(ROOT_ADDRESS, "results/saved_accuracy.p"))
+        if os.path.isfile(os.path.join(ROOT, RESULT, "saved_loss.p")):
+            os.remove(os.path.join(ROOT, RESULT, "saved_loss.p"))
+        if os.path.isfile(os.path.join(ROOT, RESULT, "saved_accuracy.p")):
+            os.remove(os.path.join(ROOT, RESULT, "saved_accuracy.p"))
 
         # save train and validation loss
         X.append(epoch + 1)
         Y.append(l_avg / steps)
         Y_test.append(l_avg_test / steps_test)
         saved_loss={"X": X, "Y": Y, "Y_test": Y_test}
-        pickle.dump(saved_loss, open(os.path.join(ROOT_ADDRESS, "results/saved_loss.p"), "wb"))
+        pickle.dump(saved_loss, open(os.path.join(ROOT, RESULT, "saved_loss.p"), "wb"))
         
         # pixel accuracy
         totalclasswise_pixel_acc = totalclasswise_pixel_acc.reshape((-1, n_classes)).astype(np.float32)
@@ -249,19 +255,20 @@ def main(args):
 
         saved_accuracy = {"X": X, "P": avg_pixel_acc, "M": mean_class_acc, "I": mIoU,
                           "P_test": avg_pixel_acc_test, "M_test": mean_class_acc_test, "I_test": mIoU_test}
-        pickle.dump(saved_accuracy, open(os.path.join(ROOT_ADDRESS, "results/saved_accuracy.p"), "wb"))
+        pickle.dump(saved_accuracy, open(os.path.join(ROOT, RESULT, "saved_accuracy.p"), "wb"))
 
         # save the best model
         this_mIoU = np.mean(totalclasswise_pixel_acc_test / (totalclasswise_gtpixels_test + totalclasswise_predpixels_test - totalclasswise_pixel_acc_test), axis=1)[0]
+        print('Epoch {}: val mIoU = {}'.format(epoch + 1, this_mIoU))
         if this_mIoU > best_mIoU:
             if best_mIoU > 0:
-                os.remove(os.path.join(ROOT_ADDRESS, "results/{}_{}_{}_{}_best.pkl".format(args.arch, args.dataset, best_epoch, float2str(best_mIoU))))
-                os.remove(os.path.join(ROOT_ADDRESS, "results/{}_{}_{}_{}_optimizer_best.pkl".format(args.arch, args.dataset, best_epoch, float2str(best_mIoU))))
+                os.remove(os.path.join(ROOT, RESULT, "{}_{}_{}_{}_best.pkl".format(args.arch, args.dataset, best_epoch, float2str(best_mIoU))))
+                os.remove(os.path.join(ROOT, RESULT, "{}_{}_{}_{}_optimizer_best.pkl".format(args.arch, args.dataset, best_epoch, float2str(best_mIoU))))
             best_mIoU = this_mIoU
             best_epoch = epoch + 1
-            torch.save(model, os.path.join(ROOT_ADDRESS, "results/{}_{}_{}_{}_best.pkl".format(args.arch, args.dataset, best_epoch, float2str(best_mIoU))))
+            torch.save(model, os.path.join(ROOT, RESULT, "{}_{}_{}_{}_best.pkl".format(args.arch, args.dataset, best_epoch, float2str(best_mIoU))))
             torch.save({'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict()},
-                       os.path.join(ROOT_ADDRESS, "results/{}_{}_{}_{}_optimizer_best.pkl".format(args.arch, args.dataset, best_epoch, float2str(best_mIoU))))
+                       os.path.join(ROOT, RESULT, "{}_{}_{}_{}_optimizer_best.pkl".format(args.arch, args.dataset, best_epoch, float2str(best_mIoU))))
 
 # Incase one want to freeze BN params
 def set_bn_eval(m):
@@ -272,8 +279,6 @@ def set_bn_eval(m):
         m.bias.requires_grad = False
 
 def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
-    print('='*10, 'Train step', '='*10, '\n')
-
     global l_avg, totalclasswise_pixel_acc, totalclasswise_gtpixels, totalclasswise_predpixels
     global steps
 
@@ -323,25 +328,23 @@ def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
         totalclasswise_gtpixels += classwise_gtpixels.sum(0).data.cpu().numpy()
         totalclasswise_predpixels += classwise_predpixels.sum(0).data.cpu().numpy()
 
-        if (i + 1) % args.epoch_log_size == 0:
-            print("Epoch [%d/%d] Loss: %.4f" % (epoch + 1, args.epochs, loss.sum().item()))
+        # if (i + 1) % args.epoch_log_size == 0:
+        #     print("Epoch [%d/%d] Loss: %.4f" % (epoch + 1, args.epochs, loss.sum().item()))
 
         if (i + 1) % args.iter_size == 0:
             scheduler.step()
 
         if (i + 1) % args.log_size == 0:
             pickle.dump(images[0].cpu().numpy(),
-                        open(os.path.join(ROOT_ADDRESS, "results/saved_train_images/" + str(epoch) + "_" + str(i) + "_input.p"), "wb"))
+                        open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_input.p"), "wb"))
 
             pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0)), [2, 0, 1]),
-                        open(os.path.join(ROOT_ADDRESS, "results/saved_train_images/" + str(epoch) + "_" + str(i) + "_output.p"), "wb"))
+                        open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_output.p"), "wb"))
 
             pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy()), [2, 0, 1]),
-                        open(os.path.join(ROOT_ADDRESS, "results/saved_train_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
+                        open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
 
 def val(model, criterion, valloader, epoch, data):
-    print('='*10, 'Validate step', '='*10, '\n')
-
     global l_avg_test, totalclasswise_pixel_acc_test, totalclasswise_gtpixels_test, totalclasswise_predpixels_test
     global steps_test
 
@@ -371,26 +374,64 @@ def val(model, criterion, valloader, epoch, data):
             totalclasswise_gtpixels_test += classwise_gtpixels.sum(0).data.cpu().numpy()
             totalclasswise_predpixels_test += classwise_predpixels.sum(0).data.cpu().numpy()
 
-            if (i + 1) % 200 == 0:
+            if (i + 1) % 100 == 0:
                 pickle.dump(images[0].cpu().numpy(),
-                            open(os.path.join(ROOT_ADDRESS, "results/saved_val_images/" + str(epoch) + "_" + str(i) + "_input.p"), "wb"))
+                            open(os.path.join(ROOT, RESULT, "saved_val_images/" + str(epoch) + "_" + str(i) + "_input.p"), "wb"))
 
                 pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0)), [2, 0, 1]),
-                            open(os.path.join(ROOT_ADDRESS, "results/saved_val_images/" + str(epoch) + "_" + str(i) + "_output.p"), "wb"))
+                            open(os.path.join(ROOT, RESULT, "saved_val_images/" + str(epoch) + "_" + str(i) + "_output.p"), "wb"))
 
                 pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy()), [2, 0, 1]),
-                            open(os.path.join(ROOT_ADDRESS, "results/saved_val_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
+                            open(os.path.join(ROOT, RESULT, "saved_val_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
 
     
-if __name__ == '__main__':
-    # Meaning of global evaluation metrics: (all metrics are set to zero at the start of each epoch)
-    # - steps: cumulated total valid pixels in current epoch (i.e. #pixels without thoes ignore_index ones)
-    # - l_avg: average training loss in each epoch
-    # - totalclasswise_pixel_acc: number of correctly predicted pixels of each class in current epoch
-    # - totalclasswise_gtpixels: number of pixels of each class in current epoch
-    # - totalclasswise_predpixels: number of pixels predicted to be of each class in current epoch
-    # - (The metrics with "_test" suffix are metrics with the same meanings but used in validation stage)
-    # - avg_pixel_acc: the accuracy of all classes (all_correct_pred_pixels/all_pixels)
-    # - mean_class_acc: the mean of accuracy of each class
 
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Hyperparams')
+    parser.add_argument('--arch', nargs='?', type=str, default='sunet7128',
+                        help='Architecture to use [\'sunet64, sunet128, sunet7128 etc\']')
+    parser.add_argument('--model_path', help='Path to the saved model', type=str)
+    parser.add_argument('--best_model_path', help='Path to the saved best model', type=str)
+    parser.add_argument('--dataset', nargs='?', type=str, default='sbd',
+                        help='Dataset to use [\'sbd, coco, cityscapes etc\']')
+    parser.add_argument('--img_rows', nargs='?', type=int, default=512,
+                        help='Height of the input image')
+    parser.add_argument('--img_cols', nargs='?', type=int, default=512,
+                        help='Width of the input image')
+    parser.add_argument('--epochs', nargs='?', type=int, default=90,
+                        help='# of the epochs')
+    parser.add_argument('--batch_size', nargs='?', type=int, default=10,
+                        help='Batch Size')
+    parser.add_argument('--lr', nargs='?', type=float, default=0.0005,
+                        help='Learning Rate')
+    parser.add_argument('--manual_seed', default=0, type=int,
+                        help='manual seed')
+    parser.add_argument('--iter_size', type=int, default=1,
+                        help='number of batches per weight updates')
+    parser.add_argument('--log_size', type=int, default=400,
+                        help='iteration period of logging segmented images')
+    parser.add_argument('--momentum', nargs='?', type=float, default=0.95,
+                        help='Momentum for SGD')
+    parser.add_argument('--momentum_bn', nargs='?', type=float, default=0.01,
+                        help='Momentum for BN')
+    parser.add_argument('--weight_decay', nargs='?', type=float, default=1e-4,
+                        help='Weight decay')
+    parser.add_argument('--output_stride', nargs='?', type=str, default='16',
+                        help='Output stride to use [\'32, 16, 8 etc\']')
+    parser.add_argument('--freeze', action='store_true',
+                        help='Freeze BN params')
+    parser.add_argument('--restore', action='store_true',
+                        help='Restore Optimizer params')
+    parser.add_argument('--epoch_log_size', nargs='?', type=str, default=20,
+                        help='Every [epoch_log_size] iterations to print loss in each epoch')
+    parser.add_argument('--pretrained', action='store_true',
+                        help='Use pretrained ImageNet initialization or not')
+    parser.add_argument('--n_classes', nargs='?', type=int, default=21,
+                        help='number of classes of the labels')
+    parser.add_argument('--optim', nargs='?', type=str, default='SGD',
+                        help='Optimizer to use [\'SGD, Nesterov etc\']')
+
+    global args
+    args = parser.parse_args()
+    RESULT = RESULT + args.dataset
     main(args)

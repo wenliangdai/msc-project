@@ -1,22 +1,21 @@
+import collections
 import os
 import random
-import collections
-import torch
-import numpy as np
-# import scipy.misc as m
-import scipy.io as sio
 
 import matplotlib.pyplot as plt
+import numpy as np
+import scipy.io as sio
+import torch
 from PIL import Image, ImageMath
-
 from torch.utils import data
-from torchvision.transforms import Compose, Normalize, ToTensor, Resize
 
-from main import get_data_path
+# from main import get_data_path
+from torchvision.transforms import Compose, Normalize, Resize, ToTensor
 
 
-class VOC_parts(data.Dataset):
-    def __init__(self, mode, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False):
+class Loader(data.Dataset):
+    def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False):
+        super(Loader, self).__init__()
         self.imgs = self.preprocess(mode=mode)
         if len(self.imgs) == 0:
             raise RuntimeError('Found 0 images, please check the data set')
@@ -27,44 +26,19 @@ class VOC_parts(data.Dataset):
         self.ignore_index = ignore_index
         self.do_transform = do_transform
         self.filler = [0, 0, 0]
-        self.n_classes = 7 # head, torso, upper/lower arm, upper/lower leg, background
+        self.n_classes = n_classes
 
     def __getitem__(self, index):
-        img = None
-        mask = None
-
-        img_path, mask_path = self.imgs[index]
-        img = Image.open(img_path).convert('RGB')
-        mask = Image.open(mask_path).convert('P')
-
-        # mask_obj = sio.loadmat(mask_path)
-        # person_class_index = None
-        # for i, class_name in enumerate(mask_obj['anno']['objects'][0,0]['class'][0]):
-        #     if class_name[0] == 'person':
-        #         person_class_index = i
-
-        # for i, part in enumerate(mask_obj['anno']['objects'][0,0]['parts'][0, person_class_index][0]):
-        #     part_name = part[0][0]
-        #     part_index = self.get_part_index(part_name)
-        #     if i == 0:
-        #         mask = part[1] * part_index
-        #     else:
-        #         mask = mask + part[1] * part_index
-        # mask = Image.fromarray(mask.astype(np.uint8)).convert('P')
-
-        if self.do_transform:
-            img, mask = self.further_transform(img, mask)
-        else:
-            img, mask = self.crop(img, mask)
-
-        if self.transform is not None:
-            img = self.transform(img)
-        if self.target_transform is not None:
-            mask = self.target_transform(mask)
-        return img, mask
+        raise NotImplementedError
 
     def __len__(self):
         return len(self.imgs)
+
+    def get_pascal_labels(self):
+        raise NotImplementedError
+
+    def preprocess(self, mode):
+        raise NotImplementedError
     
     def further_transform(self, img, mask):
         img, mask = self.scale(img, mask)
@@ -149,49 +123,4 @@ class VOC_parts(data.Dataset):
         else:
             return rgb
 
-    def get_pascal_labels(self):
-        # 7 classes
-        return np.asarray([[0,0,0], [128,0,0], [0,128,0], [128,128,0], [0,0,128], [128,0,128], [0,128,128]])
 
-    def preprocess(self, mode):
-        assert mode in ['train', 'val', 'test']
-        items = []
-        data_path = get_data_path('parts')
-        
-        if mode == 'train':
-            img_path = os.path.join(data_path, 'JPEGImages')
-            mask_path = os.path.join(data_path, 'ImageSets', 'Person', 'gt')
-            data_list = [l.strip('\n') for l in open(os.path.join(
-                data_path, 'ImageSets', 'Person', 'train.txt')).readlines()]
-            for it in data_list:
-                item = (os.path.join(img_path, it + '.jpg'), os.path.join(mask_path, it + '.png'))
-                items.append(item)
-        elif mode == 'val':
-            img_path = os.path.join(data_path, 'JPEGImages')
-            mask_path = os.path.join(data_path, 'ImageSets', 'Person', 'gt')
-            data_list = [l.strip('\n') for l in open(os.path.join(
-                data_path, 'ImageSets', 'Person', 'val.txt')).readlines()]
-            for it in data_list:
-                item = (os.path.join(img_path, it + '.jpg'), os.path.join(mask_path, it + '.png'))
-                items.append(item)
-        
-        return items
-
-    # def get_part_index(self, part_name):
-    #     '''
-    #     coarse partition:
-    #     head = 1
-    #     torso = 2
-    #     arm = 3
-    #     leg = 4
-    #     (background = 0)
-    #     There are 24 finer parts in total
-    #     '''
-    #     if part_name in ['head','leye','reye','lear','rear','lebrow','rebrow','nose','mouth','hair']:
-    #         return 1
-    #     if part_name in ['torso','neck']:
-    #         return 2
-    #     if part_name in ['llarm','luarm','lhand','rlarm','ruarm','rhand']:
-    #         return 3
-    #     if part_name in ['llleg','luleg','lfoot','rlleg','ruleg','rfoot']:
-    #         return 4

@@ -7,7 +7,6 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-mom_bn = 0.01
 output_stride_ref = {'32':3, '16':2, '8':1}
 sunet64_path = '/home/wenlidai/sunets-reproduce/main/models/pretrained/SUNets/checkpoint_64_2441_residual.pth.tar'
 
@@ -22,9 +21,10 @@ def sunet(kind='64', num_classes=21, output_stride='32'):
         raise ValueError("Argument {kind} should be '64' or '128' or '7128'.")
 
 class Dilated_sunet64(nn.Module):
-    def __init__(self, pretrained=False, num_classes=21, ignore_index=-1, weight=None, output_stride='16'):
+    def __init__(self, pretrained=False, num_classes=21, ignore_index=-1, weight=None, output_stride='16', momentum_bn=0.01):
         super(Dilated_sunet64, self).__init__()
         self.num_classes = num_classes
+        self.momentum_bn = momentum_bn
         sunet64 = sunet('64', num_classes=num_classes, output_stride=output_stride)
 
         if pretrained:
@@ -46,15 +46,15 @@ class Dilated_sunet64(nn.Module):
 
         for n, m in self.features.named_modules():
             if 'bn' in n:
-                m.momentum = mom_bn
+                m.momentum = self.momentum_bn
 
         # De-gridding filters
         self.final = nn.Sequential(
             nn.Conv2d(1024, 512, kernel_size=3, padding=2, dilation=2, bias=True), # size 不变
-            nn.BatchNorm2d(512, momentum=mom_bn),
+            nn.BatchNorm2d(512, momentum=self.momentum_bn),
             nn.ReLU(inplace=True),
             nn.Conv2d(512, 512, kernel_size=3, padding=1, dilation=1, bias=True),
-            nn.BatchNorm2d(512, momentum=mom_bn),
+            nn.BatchNorm2d(512, momentum=self.momentum_bn),
             nn.ReLU(inplace=True),
             nn.Conv2d(512, num_classes, kernel_size=1)
         )
