@@ -188,7 +188,6 @@ def main(args):
 
     criterion = nn.CrossEntropyLoss(size_average=False, ignore_index=traindata.ignore_index)
 
-    print('='*10, 'Entering epoch loop', '='*10, '\n')
     for epoch in range(epochs_done, args.epochs):
         print('='*10, 'Epoch %d' % (epoch + 1), '='*10)
         l_avg = 0
@@ -259,6 +258,7 @@ def main(args):
 
         # save the best model
         this_mIoU = np.mean(totalclasswise_pixel_acc_test / (totalclasswise_gtpixels_test + totalclasswise_predpixels_test - totalclasswise_pixel_acc_test), axis=1)[0]
+        print('Epoch {}: val mIoU = {}'.format(epoch + 1, this_mIoU))
         if this_mIoU > best_mIoU:
             if best_mIoU > 0:
                 os.remove(os.path.join(ROOT, RESULT, "{}_{}_{}_{}_best.pkl".format(args.arch, args.dataset, best_epoch, float2str(best_mIoU))))
@@ -278,8 +278,6 @@ def set_bn_eval(m):
         m.bias.requires_grad = False
 
 def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
-    print('='*10, 'Train step', '='*10, '\n')
-
     global l_avg, totalclasswise_pixel_acc, totalclasswise_gtpixels, totalclasswise_predpixels
     global steps
 
@@ -329,8 +327,8 @@ def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
         totalclasswise_gtpixels += classwise_gtpixels.sum(0).data.cpu().numpy()
         totalclasswise_predpixels += classwise_predpixels.sum(0).data.cpu().numpy()
 
-        if (i + 1) % args.epoch_log_size == 0:
-            print("Epoch [%d/%d] Loss: %.4f" % (epoch + 1, args.epochs, loss.sum().item()))
+        # if (i + 1) % args.epoch_log_size == 0:
+        #     print("Epoch [%d/%d] Loss: %.4f" % (epoch + 1, args.epochs, loss.sum().item()))
 
         # if (i + 1) % args.iter_size == 0:
         #     scheduler.step()
@@ -346,8 +344,6 @@ def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
                         open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
 
 def val(model, criterion, valloader, epoch, data):
-    print('='*10, 'Validate step', '='*10, '\n')
-
     global l_avg_test, totalclasswise_pixel_acc_test, totalclasswise_gtpixels_test, totalclasswise_predpixels_test
     global steps_test
 

@@ -8,7 +8,10 @@
   "sbd": {
     "data_path": "/home/wenlidai/datasets/benchmark_RELEASE/"
   },
-  "parts": {
+  "pascalparts": {
+    "data_path": "/home/wenlidai/datasets/VOC2012/"
+  },
+  "lip": {
     "data_path": "/home/wenlidai/datasets/LIP/"
   }
 }
