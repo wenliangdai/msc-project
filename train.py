@@ -189,7 +189,6 @@ def main(args):
 
     criterion = nn.CrossEntropyLoss(size_average=False, ignore_index=traindata.ignore_index)
 
-    print('='*10, 'Entering epoch loop', '='*10, '\n')
     for epoch in range(epochs_done, args.epochs):
         print('='*10, 'Epoch %d' % (epoch + 1), '='*10)
         l_avg = 0
@@ -280,8 +279,6 @@ def set_bn_eval(m):
         m.bias.requires_grad = False
 
 def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
-    print('='*10, 'Train step', '='*10, '\n')
-
     global l_avg, totalclasswise_pixel_acc, totalclasswise_gtpixels, totalclasswise_predpixels
     global steps
 
@@ -348,8 +345,6 @@ def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
                         open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
 
 def val(model, criterion, valloader, epoch, data):
-    print('='*10, 'Validate step', '='*10, '\n')
-
     global l_avg_test, totalclasswise_pixel_acc_test, totalclasswise_gtpixels_test, totalclasswise_predpixels_test
     global steps_test
 
