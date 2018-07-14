@@ -152,8 +152,8 @@ def main(args):
     nonbias_params = list(map(lambda x: x[1], nonbias_params))
 
     optimizer = torch.optim.SGD([{'params': bias_params, 'lr': args.lr},
-                                 {'params': bias_10x_params, 'lr': args.lr},
-                                 {'params': nonbias_10x_params, 'lr': args.lr},
+                                 {'params': bias_10x_params, 'lr': 20 * args.lr if args.pretrained else args.lr},
+                                 {'params': nonbias_10x_params, 'lr': 10 * args.lr if args.pretrained else args.lr},
                                  {'params': nonbias_params, 'lr': args.lr},],
                                 lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay,
                                 nesterov=(args.optim == 'Nesterov'))
