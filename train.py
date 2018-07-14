@@ -259,7 +259,7 @@ def main(args):
 
         # save the best model
         this_mIoU = np.mean(totalclasswise_pixel_acc_test / (totalclasswise_gtpixels_test + totalclasswise_predpixels_test - totalclasswise_pixel_acc_test), axis=1)[0]
-        print('Epoch {}: val mIoU = {}'.format(epoch + 1, this_mIoU))
+        print('Val mIoU = {}'.format(this_mIoU))
         if this_mIoU > best_mIoU:
             if best_mIoU > 0:
                 os.remove(os.path.join(ROOT, RESULT, "{}_{}_{}_{}_best.pkl".format(args.arch, args.dataset, best_epoch, float2str(best_mIoU))))
