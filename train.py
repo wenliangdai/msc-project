@@ -24,29 +24,6 @@ from utils import dotdict, float2str
 ROOT = '/home/wenlidai/sunets-reproduce/'
 RESULT = 'results_'
 
-# args = dotdict({
-#     'arch': 'sunet64',
-#     'batch_size': 10,
-#     'dataset': 'sbd',
-#     'freeze': False,
-#     'img_cols': 512,
-#     'img_rows': 512,
-#     'iter_size': 1,
-#     'lr': 0.0005,
-#     'log_size': 800,
-#     'epoch_log_size': 20,
-#     'manual_seed': 0,
-#     'model_path': 'sunet64_sbd_100.pkl',
-#     'best_model_path': 'sunet64_sbd_102_0.31_best.pkl',
-#     'momentum': 0.90,
-#     'epochs': 120,
-#     'optim': 'SGD',
-#     'output_stride': '16',
-#     'restore': True,
-#     'split': 'train_aug',
-#     'weight_decay': 0.0005
-# })
-
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 def main(args):
@@ -70,10 +47,9 @@ def main(args):
     # Setup Dataloader
     data_loader = get_loader(args.dataset)
 
-    mean_std = ([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     input_transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize(*mean_std)
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
     target_transform = extended_transforms.MaskToTensor()
 
@@ -433,7 +409,33 @@ if __name__ == '__main__':
 
     global args
     args = parser.parse_args()
+    
     RESULT = RESULT + args.dataset
     if args.pretrained:
         RESULT = RESULT + '_pretrained'
+    
     main(args)
+
+
+# args = dotdict({
+#     'arch': 'sunet64',
+#     'batch_size': 10,
+#     'dataset': 'sbd',
+#     'freeze': False,
+#     'img_cols': 512,
+#     'img_rows': 512,
+#     'iter_size': 1,
+#     'lr': 0.0005,
+#     'log_size': 800,
+#     'epoch_log_size': 20,
+#     'manual_seed': 0,
+#     'model_path': 'sunet64_sbd_100.pkl',
+#     'best_model_path': 'sunet64_sbd_102_0.31_best.pkl',
+#     'momentum': 0.90,
+#     'epochs': 120,
+#     'optim': 'SGD',
+#     'output_stride': '16',
+#     'restore': True,
+#     'split': 'train_aug',
+#     'weight_decay': 0.0005
+# })
