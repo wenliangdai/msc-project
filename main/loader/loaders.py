@@ -228,6 +228,9 @@ class LIP_LOADER(Loader):
 
 class PASCAL_HUMAN_LOADER(Loader):
     def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False, task='semseg'):
+        if task not in ['semseg', 'parts', 'both']:
+            raise ValueError('PASCAL_HUMAN_LOADER: task should be in values of [`semseg`, `parts`, `both`]')
+        self.task = task
         super(PASCAL_HUMAN_LOADER, self).__init__(
             mode, 
             n_classes, 
@@ -236,9 +239,6 @@ class PASCAL_HUMAN_LOADER(Loader):
             img_size, 
             ignore_index, 
             do_transform)
-        if task not in ['semseg', 'parts', 'both']:
-            raise ValueError('PASCAL_HUMAN_LOADER: task should be in values of [`semseg`, `parts`, `both`]')
-        self.task = task
     
     def __getitem__(self, index):
         img_path, mask_path = self.imgs[index]
