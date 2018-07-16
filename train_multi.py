@@ -24,29 +24,6 @@ from utils import dotdict, float2str
 ROOT = '/home/wenlidai/sunets-reproduce/'
 RESULT = 'results'
 
-# args = dotdict({
-#     'arch': 'sunet64',
-#     'batch_size': 10,
-#     'dataset': 'sbd',
-#     'freeze': False,
-#     'img_cols': 512,
-#     'img_rows': 512,
-#     'iter_size': 1,
-#     'lr': 0.0005,
-#     'log_size': 800,
-#     'epoch_log_size': 20,
-#     'manual_seed': 0,
-#     'model_path': 'sunet64_sbd_100.pkl',
-#     'best_model_path': 'sunet64_sbd_102_0.31_best.pkl',
-#     'momentum': 0.90,
-#     'epochs': 120,
-#     'optim': 'SGD',
-#     'output_stride': '16',
-#     'restore': True,
-#     'split': 'train_aug',
-#     'weight_decay': 0.0005
-# })
-
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 def main(args):

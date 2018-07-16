@@ -53,9 +53,9 @@ def main(args):
     ])
     target_transform = extended_transforms.MaskToTensor()
 
-    traindata = data_loader('train', n_classes=args.n_classes, transform=input_transform, target_transform=target_transform, do_transform=True)
+    traindata = data_loader('train', n_classes=args.n_classes, transform=input_transform, target_transform=target_transform, do_transform=True, task=args.task)
     trainloader = data.DataLoader(traindata, batch_size=args.batch_size, num_workers=2, shuffle=True)
-    valdata = data_loader('val', n_classes=args.n_classes, transform=input_transform, target_transform=target_transform)
+    valdata = data_loader('val', n_classes=args.n_classes, transform=input_transform, target_transform=target_transform, task=args.task)
     valloader = data.DataLoader(valdata, batch_size=args.batch_size, num_workers=2, shuffle=False)
 
     n_classes = traindata.n_classes
@@ -69,7 +69,8 @@ def main(args):
         ignore_index=traindata.ignore_index, 
         output_stride=args.output_stride,
         pretrained=args.pretrained,
-        momentum_bn=args.momentum_bn
+        momentum_bn=args.momentum_bn,
+        dprob=args.dprob
     ).to(device)
 
     epochs_done=0
@@ -386,6 +387,8 @@ if __name__ == '__main__':
                         help='number of batches per weight updates')
     parser.add_argument('--log_size', type=int, default=400,
                         help='iteration period of logging segmented images')
+    parser.add_argument('--dprob', nargs='?', type=float, default=1e-7,
+                        help='Dropout probability')
     parser.add_argument('--momentum', nargs='?', type=float, default=0.95,
                         help='Momentum for SGD')
     parser.add_argument('--momentum_bn', nargs='?', type=float, default=0.01,
@@ -406,6 +409,8 @@ if __name__ == '__main__':
                         help='number of classes of the labels')
     parser.add_argument('--optim', nargs='?', type=str, default='SGD',
                         help='Optimizer to use [\'SGD, Nesterov etc\']')
+    parser.add_argument('--task', nargs='?', type=str, default='semseg',
+                        help='Task to use [\'semseg, parts\']')
 
     global args
     args = parser.parse_args()

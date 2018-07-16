@@ -10,22 +10,22 @@ from torch import nn
 output_stride_ref = {'32':3, '16':2, '8':1}
 sunet64_path = '/home/wenlidai/sunets-reproduce/main/models/pretrained/SUNets/checkpoint_64_2441_residual.pth.tar'
 
-def sunet(kind='64', num_classes=21, output_stride='32'):
+def sunet(kind='64', num_classes=21, output_stride='32', dprob=1e-7):
     if kind == '64':
-        return SUNets(in_dim=512, start_planes=64, filters_base=64, num_classes=num_classes, depth=4, output_stride=output_stride)
+        return SUNets(in_dim=512, start_planes=64, filters_base=64, num_classes=num_classes, depth=4, output_stride=output_stride, dprob=dprob)
     elif kind == '128':
-        return SUNets(in_dim=512, start_planes=64, filters_base=128, num_classes=num_classes, depth=4, output_stride=output_stride)
+        return SUNets(in_dim=512, start_planes=64, filters_base=128, num_classes=num_classes, depth=4, output_stride=output_stride, dprob=dprob)
     elif kind == '7128':
-        return SUNets(in_dim=512, start_planes=64, filters_base=128, num_classes=num_classes, depth=7, output_stride=output_stride)
+        return SUNets(in_dim=512, start_planes=64, filters_base=128, num_classes=num_classes, depth=7, output_stride=output_stride, dprob=dprob)
     else:
         raise ValueError("Argument {kind} should be '64' or '128' or '7128'.")
 
 class Dilated_sunet64(nn.Module):
-    def __init__(self, pretrained=False, num_classes=21, ignore_index=-1, weight=None, output_stride='16', momentum_bn=0.01):
+    def __init__(self, pretrained=False, num_classes=21, ignore_index=-1, weight=None, output_stride='16', momentum_bn=0.01, dprob=1e-7):
         super(Dilated_sunet64, self).__init__()
         self.num_classes = num_classes
         self.momentum_bn = momentum_bn
-        sunet64 = sunet('64', num_classes=num_classes, output_stride=output_stride)
+        sunet64 = sunet('64', num_classes=num_classes, output_stride=output_stride, dprob=dprob)
 
         if pretrained:
             # load saved state_dict
