@@ -5,5 +5,6 @@ def get_loader(name):
         'sbd': SEMSEG_LOADER,
         'parts': PASCAL_PARTS_LOADER,
         'lip': LIP_LOADER,
-        'human': PASCAL_HUMAN_LOADER
+        'human': PASCAL_HUMAN_LOADER,
+        'sbd_lip': SBD_LIP_LOADER
     }[name]

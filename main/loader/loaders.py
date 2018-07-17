@@ -310,6 +310,70 @@ class PASCAL_HUMAN_LOADER(Loader):
                 items.append(item)
         return items
 
+class SBD_LIP_LOADER(Loader):
+    def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False):
+        super(SBD_LIP_LOADER, self).__init__(
+            mode, 
+            n_classes, 
+            transform, 
+            target_transform, 
+            img_size, 
+            ignore_index, 
+            do_transform)
+        self.sbd_loader = SEMSEG_LOADER(
+            mode, 
+            n_classes[0], 
+            transform, 
+            target_transform, 
+            img_size, 
+            ignore_index, 
+            do_transform)
+        self.lip_loader = LIP_LOADER(
+            mode, 
+            n_classes[1], 
+            transform, 
+            target_transform, 
+            img_size, 
+            ignore_index, 
+            do_transform)
+    def __getitem__(self, index):
+        img_path, mask_path = self.imgs[index]
+        img = Image.open(img_path).convert('RGB')
+        if mask_path.split('.')[-1] == 'mat':
+            mask = sio.loadmat(mask_path)['GTcls']['Segmentation'][0][0]
+            mask = Image.fromarray(mask.astype(np.uint8)).convert('P')
+        else:
+            mask = Image.open(mask_path).convert('P')
+
+        if self.do_transform:
+            img, mask = self.further_transform(img, mask)
+        else:
+            img, mask = self.crop(img, mask)
+
+        if self.transform is not None:
+            img = self.transform(img)
+        if self.target_transform is not None:
+            mask = self.target_transform(mask)
+
+        if 'person' in img_path:
+            task = 1
+        else:
+            task = 0
+        return img, mask, task
+
+    def get_pascal_labels(self):
+        return np.asarray([
+            [0,0,0], [128,0,0], [0,128,0], [128,128,0], [0,0,128], [128,0,128],
+            [0,128,128], [128,128,128], [64,0,0], [192,0,0], [64,128,0], [192,128,0],
+            [64,0,128], [192,0,128], [64,128,128], [192,128,128], [0,64,0], [128,64,0],
+            [0,192,0], [128,192,0], [0,64,128]
+        ])
+
+    def preprocess(self, mode):
+        sbd_items = self.sbd_loader.preprocess(mode)
+        lip_items = self.lip_loader.preprocess(mode)
+        return sbd_items + lip_items
+
 
 # mask_obj = sio.loadmat(mask_path)
 # person_class_index = None
