@@ -243,7 +243,11 @@ class PASCAL_HUMAN_LOADER(Loader):
     def __getitem__(self, index):
         img_path, mask_path = self.imgs[index]
         img = Image.open(img_path).convert('RGB')
-        mask = Image.open(mask_path).convert('P')
+        if mask_path.split('.')[-1] == 'mat':
+            mask = sio.loadmat(mask_path)['GTcls']['Segmentation'][0][0]
+            mask = Image.fromarray(mask.astype(np.uint8)).convert('P')
+        else:
+            mask = Image.open(mask_path).convert('P')
 
         if self.do_transform:
             img, mask = self.further_transform(img, mask)
@@ -285,14 +289,13 @@ class PASCAL_HUMAN_LOADER(Loader):
             p = open(os.path.join(pascal_data_path, 'ImageSets', 'Person', 'val.txt')).readlines()
             s = open(os.path.join(sbd_data_path, 'dataset', 'val.txt')).readlines()
             lines = list(set(p).intersection(s))
-            data_list = [l.strip('\n') for l in open(os.path.join(
-                pascal_data_path, 'ImageSets', 'Person', 'val.txt')).readlines()]
+            data_list = [l.strip('\n') for l in lines]
         img_path = os.path.join(sbd_data_path, 'dataset', 'img')
 
         if self.task == 'semseg':
             mask_path = os.path.join(sbd_data_path, 'dataset', 'cls')
             for it in data_list:
-                item = (os.path.join(img_path, it + '.jpg'), os.path.join(mask_path, it + '.png'))
+                item = (os.path.join(img_path, it + '.jpg'), os.path.join(mask_path, it + '.mat'))
                 items.append(item)
         elif self.task == 'parts':
             mask_path = os.path.join(pascal_data_path, 'ImageSets', 'Person', 'gt')
@@ -303,7 +306,7 @@ class PASCAL_HUMAN_LOADER(Loader):
             semseg_mask_path = os.path.join(sbd_data_path, 'dataset', 'cls')
             parts_mask_path = os.path.join(pascal_data_path, 'ImageSets', 'Person', 'gt')
             for it in data_list:
-                item = (os.path.join(img_path, it + '.jpg'), os.path.join(semseg_mask_path, it + '.png'), os.path.join(parts_mask_path, it + '.png'))
+                item = (os.path.join(img_path, it + '.jpg'), os.path.join(semseg_mask_path, it + '.mat'), os.path.join(parts_mask_path, it + '.png'))
                 items.append(item)
         return items
 
