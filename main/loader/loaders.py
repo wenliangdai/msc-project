@@ -272,42 +272,36 @@ class PASCAL_HUMAN_LOADER(Loader):
     
     def preprocess(self, mode):
         assert mode in ['train', 'val', 'test']
-        data_path = get_data_path('pascal')
+        pascal_data_path = get_data_path('pascal')
+        sbd_data_path = get_data_path('sbd')
         items = []
+
+        if mode == 'train':
+            p = open(os.path.join(pascal_data_path, 'ImageSets', 'Person', 'train.txt')).readlines()
+            s = open(os.path.join(sbd_data_path, 'dataset', 'train.txt')).readlines()
+            lines = list(set(p).intersection(s))
+            data_list = [l.strip('\n') for l in lines]
+        elif mode == 'val':
+            p = open(os.path.join(pascal_data_path, 'ImageSets', 'Person', 'val.txt')).readlines()
+            s = open(os.path.join(sbd_data_path, 'dataset', 'val.txt')).readlines()
+            lines = list(set(p).intersection(s))
+            data_list = [l.strip('\n') for l in open(os.path.join(
+                pascal_data_path, 'ImageSets', 'Person', 'val.txt')).readlines()]
+        img_path = os.path.join(sbd_data_path, 'dataset', 'img')
+
         if self.task == 'semseg':
-            if mode == 'train':
-                data_list = [l.strip('\n') for l in open(os.path.join(
-                    data_path, 'ImageSets', 'Person', 'train.txt')).readlines()]
-            elif mode == 'val':
-                data_list = [l.strip('\n') for l in open(os.path.join(
-                    data_path, 'ImageSets', 'Person', 'val.txt')).readlines()]
-            img_path = os.path.join(data_path, 'JPEGImages')
-            mask_path = os.path.join(data_path, 'SegmentationClass')
+            mask_path = os.path.join(sbd_data_path, 'dataset', 'cls')
             for it in data_list:
                 item = (os.path.join(img_path, it + '.jpg'), os.path.join(mask_path, it + '.png'))
                 items.append(item)
         elif self.task == 'parts':
-            if mode == 'train':
-                data_list = [l.strip('\n') for l in open(os.path.join(
-                    data_path, 'ImageSets', 'Person', 'train.txt')).readlines()]
-            elif mode == 'val':
-                data_list = [l.strip('\n') for l in open(os.path.join(
-                    data_path, 'ImageSets', 'Person', 'val.txt')).readlines()]
-            img_path = os.path.join(data_path, 'JPEGImages')
-            mask_path = os.path.join(data_path, 'ImageSets', 'Person', 'gt')
+            mask_path = os.path.join(pascal_data_path, 'ImageSets', 'Person', 'gt')
             for it in data_list:
                 item = (os.path.join(img_path, it + '.jpg'), os.path.join(mask_path, it + '.png'))
                 items.append(item)
         else:
-            if mode == 'train':
-                data_list = [l.strip('\n') for l in open(os.path.join(
-                    data_path, 'ImageSets', 'Person', 'train.txt')).readlines()]
-            elif mode == 'val':
-                data_list = [l.strip('\n') for l in open(os.path.join(
-                    data_path, 'ImageSets', 'Person', 'val.txt')).readlines()]
-            img_path = os.path.join(data_path, 'JPEGImages')
-            semseg_mask_path = os.path.join(data_path, 'SegmentationClass')
-            parts_mask_path = os.path.join(data_path, 'ImageSets', 'Person', 'gt')
+            semseg_mask_path = os.path.join(sbd_data_path, 'dataset', 'cls')
+            parts_mask_path = os.path.join(pascal_data_path, 'ImageSets', 'Person', 'gt')
             for it in data_list:
                 item = (os.path.join(img_path, it + '.jpg'), os.path.join(semseg_mask_path, it + '.png'), os.path.join(parts_mask_path, it + '.png'))
                 items.append(item)
