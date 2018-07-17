@@ -68,7 +68,7 @@ class Dilated_sunet64(nn.Module):
         return x
 
 class Dilated_sunet64_multi(nn.Module):
-    def __init__(self, pretrained=False, num_classes=[21, 21], ignore_index=-1, weight=None, output_stride='16', momentum_bn=0.01, dprob=1e-7):
+    def __init__(self, pretrained=False, num_classes=[21,20], ignore_index=-1, weight=None, output_stride='16', momentum_bn=0.01, dprob=1e-7):
         super(Dilated_sunet64_multi, self).__init__()
         self.num_classes = num_classes
         self.momentum_bn = momentum_bn

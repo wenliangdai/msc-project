@@ -421,7 +421,7 @@ if __name__ == '__main__':
                         help='Every [epoch_log_size] iterations to print loss in each epoch')
     parser.add_argument('--pretrained', action='store_true',
                         help='Use pretrained ImageNet initialization or not')
-    parser.add_argument('--n_classes', nargs='?', type=int, default=21,
+    parser.add_argument('--n_classes', nargs='?', type=list, default=[21,20],
                         help='number of classes of the labels')
     parser.add_argument('--optim', nargs='?', type=str, default='SGD',
                         help='Optimizer to use [\'SGD, Nesterov etc\']')
