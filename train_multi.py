@@ -74,7 +74,7 @@ def main(args):
     model = get_model(
         name=args.arch, 
         n_classes=n_classes, 
-        # ignore_index=traindata.ignore_index, 
+        ignore_index=traindata.ignore_index, 
         output_stride=args.output_stride,
         pretrained=args.pretrained,
         momentum_bn=args.momentum_bn,
@@ -300,18 +300,15 @@ def train(model, optimizers, criterion, trainloader, epoch, schedulers, data, co
         outputs = model(images, task)
         loss = criterion(outputs, labels)
         
-        total_valid_pixel = torch.sum(labels.data != criterion.ignore_index)
+        total_valid_pixel = float(torch.sum(labels.data != criterion.ignore_index))
         classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([outputs], labels, data.n_classes[task])
 
-        total_valid_pixel = torch.FloatTensor([total_valid_pixel]).to(device)
         classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc]).to(device)
         classwise_gtpixels = torch.FloatTensor([classwise_gtpixels]).to(device)
         classwise_predpixels = torch.FloatTensor([classwise_predpixels]).to(device)
 
-        total_valid_pixel = float(total_valid_pixel.sum(0).data.cpu().numpy())
-
         total_loss = loss.sum()
-        total_loss = total_loss / float(total_valid_pixel)
+        total_loss = total_loss / total_valid_pixel
         total_loss = total_loss / float(args.iter_size)
         total_loss.backward()
 
@@ -351,15 +348,12 @@ def val(model, criterion, valloader, epoch, data):
             outputs = model(images, task)
             loss = criterion(outputs, labels)
 
-            total_valid_pixel = torch.sum(labels.data != criterion.ignore_index)
+            total_valid_pixel = float(torch.sum(labels.data != criterion.ignore_index))
             classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([outputs], labels, data.n_classes[task])
 
-            total_valid_pixel = torch.FloatTensor([total_valid_pixel]).to(device)
             classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc]).to(device)
             classwise_gtpixels = torch.FloatTensor([classwise_gtpixels]).to(device)
             classwise_predpixels = torch.FloatTensor([classwise_predpixels]).to(device)
-
-            total_valid_pixel = float(total_valid_pixel.sum(0).data.cpu().numpy())
 
             l_avg_test[task] += loss.sum().data.cpu().numpy()
             steps_test[task] += total_valid_pixel
