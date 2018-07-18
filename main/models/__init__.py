@@ -1,6 +1,7 @@
 from torch.nn import init
 
 from main.models.sunets import *
+from main.models.fcn32 import *
 
 def init_params(net):
     '''Init layer parameters.'''
@@ -34,6 +35,9 @@ def get_model(name, n_classes, ignore_index=-1, weight=None, output_stride='16',
             init_params(model.final2)
         else:
             init_params(model.final)
+    elif name in ['fcn32vgg']:
+        model = _get_model_instance(name)
+        model = model(num_classes=n_classes)
     else:
         raise 'Model {} not available'.format(name)
     return model
@@ -41,5 +45,6 @@ def get_model(name, n_classes, ignore_index=-1, weight=None, output_stride='16',
 def _get_model_instance(name):
     return {
         'sunet64': Dilated_sunet64,
-        'sunet64_multi': Dilated_sunet64_multi
+        'sunet64_multi': Dilated_sunet64_multi,
+        'fcn32vgg': FCN32VGG
     }[name]
