@@ -377,7 +377,7 @@ def val(model, criterion, valloader, epoch, data):
                 pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy()), [2, 0, 1]),
                             open(os.path.join(ROOT, RESULT, "saved_val_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
 
-    
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Hyperparams')
@@ -421,15 +421,13 @@ if __name__ == '__main__':
                         help='Every [epoch_log_size] iterations to print loss in each epoch')
     parser.add_argument('--pretrained', action='store_true',
                         help='Use pretrained ImageNet initialization or not')
-    parser.add_argument('--n_classes', nargs='?', type=list, default=[21,20],
+    parser.add_argument('--n_classes', nargs='?', type=int, action='append',
                         help='number of classes of the labels')
     parser.add_argument('--optim', nargs='?', type=str, default='SGD',
                         help='Optimizer to use [\'SGD, Nesterov etc\']')
 
     global args
     args = parser.parse_args()
-
-    args.n_classes = [int(n) for n in args.n_classes]
 
     RESULT = RESULT + args.dataset
     if args.pretrained:
