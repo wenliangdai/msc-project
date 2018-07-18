@@ -428,7 +428,9 @@ if __name__ == '__main__':
 
     global args
     args = parser.parse_args()
-    
+
+    args.n_classes = [int(n) for n in args.n_classes]
+
     RESULT = RESULT + args.dataset
     if args.pretrained:
         RESULT = RESULT + '_pretrained'
