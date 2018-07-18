@@ -272,7 +272,6 @@ def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
             optimizer.zero_grad()
         
         outputs = model(images)
-
         loss = criterion(outputs, labels)
         
         total_valid_pixel = torch.sum(labels.data != criterion.ignore_index)
@@ -326,9 +325,9 @@ def val(model, criterion, valloader, epoch, data):
         labels = labels.to(device)
 
         with torch.no_grad():
-            outputs = model(images, labels)
-            
+            outputs = model(images)
             loss = criterion(outputs, labels)
+
             total_valid_pixel = torch.sum(labels.data != criterion.ignore_index)
             classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([outputs], labels, data.n_classes)
 
