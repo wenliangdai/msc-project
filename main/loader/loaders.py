@@ -312,14 +312,6 @@ class PASCAL_HUMAN_LOADER(Loader):
 
 class SBD_LIP_LOADER(Loader):
     def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False):
-        super(SBD_LIP_LOADER, self).__init__(
-            mode, 
-            n_classes, 
-            transform, 
-            target_transform, 
-            img_size, 
-            ignore_index, 
-            do_transform)
         self.sbd_loader = SEMSEG_LOADER(
             mode, 
             n_classes[0], 
@@ -336,6 +328,15 @@ class SBD_LIP_LOADER(Loader):
             img_size, 
             ignore_index, 
             do_transform)
+        super(SBD_LIP_LOADER, self).__init__(
+            mode, 
+            n_classes, 
+            transform, 
+            target_transform, 
+            img_size, 
+            ignore_index, 
+            do_transform)
+        
     def __getitem__(self, index):
         img_path, mask_path = self.imgs[index]
         img = Image.open(img_path).convert('RGB')
