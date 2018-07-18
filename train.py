@@ -53,9 +53,9 @@ def main(args):
     ])
     target_transform = extended_transforms.MaskToTensor()
 
-    traindata = data_loader('train', n_classes=args.n_classes, transform=input_transform, target_transform=target_transform, do_transform=True, task=args.task)
+    traindata = data_loader('train', n_classes=args.n_classes, transform=input_transform, target_transform=target_transform, do_transform=True)
     trainloader = data.DataLoader(traindata, batch_size=args.batch_size, num_workers=2, shuffle=True)
-    valdata = data_loader('val', n_classes=args.n_classes, transform=input_transform, target_transform=target_transform, task=args.task)
+    valdata = data_loader('val', n_classes=args.n_classes, transform=input_transform, target_transform=target_transform)
     valloader = data.DataLoader(valdata, batch_size=args.batch_size, num_workers=2, shuffle=False)
 
     n_classes = traindata.n_classes
@@ -267,17 +267,11 @@ def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
     for i, (images, labels) in enumerate(trainloader):
         images = images.to(device)
         labels = labels.to(device)
-        # assert images.size()[2:] == labels.size()[1:]
-        # print('Inputs size =', images.size())
-        # print('Labels size =', labels.size())
 
         if i % args.iter_size == 0:
             optimizer.zero_grad()
         
-        outputs = model(images, labels)
-        # assert outputs.size()[2:] == labels.size()[1:]
-        # assert outputs.size(1) == data.n_classes
-        # print('Outputs size =', outputs.size())
+        outputs = model(images)
 
         loss = criterion(outputs, labels)
         
@@ -365,7 +359,7 @@ def val(model, criterion, valloader, epoch, data):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Hyperparams')
-    parser.add_argument('--arch', nargs='?', type=str, default='sunet7128',
+    parser.add_argument('--arch', nargs='?', type=str, default='sunet64',
                         help='Architecture to use [\'sunet64, sunet128, sunet7128 etc\']')
     parser.add_argument('--model_path', help='Path to the saved model', type=str)
     parser.add_argument('--best_model_path', help='Path to the saved best model', type=str)
@@ -409,13 +403,11 @@ if __name__ == '__main__':
                         help='number of classes of the labels')
     parser.add_argument('--optim', nargs='?', type=str, default='SGD',
                         help='Optimizer to use [\'SGD, Nesterov etc\']')
-    parser.add_argument('--task', nargs='?', type=str, default='semseg',
-                        help='Task to use [\'semseg, parts\']')
 
     global args
     args = parser.parse_args()
     
-    RESULT = RESULT + args.dataset + args.task
+    RESULT = RESULT + args.dataset
     if args.pretrained:
         RESULT = RESULT + '_pretrained'
     

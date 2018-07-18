@@ -49,17 +49,17 @@ class Dilated_sunet64(nn.Module):
                 m.momentum = self.momentum_bn
 
         # De-gridding filters
-        self.final = nn.Sequential(
-            nn.Conv2d(1024, 512, kernel_size=3, padding=2, dilation=2, bias=True), # size 不变
-            nn.BatchNorm2d(512, momentum=self.momentum_bn),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(512, 512, kernel_size=3, padding=1, dilation=1, bias=True),
-            nn.BatchNorm2d(512, momentum=self.momentum_bn),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(512, num_classes, kernel_size=1)
-        )
+        self.final = nn.Sequential(OrderedDict([
+            ('conv0', nn.Conv2d(1024, 512, kernel_size=3, padding=2, dilation=2, bias=True)), # size 不变
+            ('bn1', nn.BatchNorm2d(512, momentum=self.momentum_bn)),
+            ('relu2', nn.ReLU(inplace=True)),
+            ('conv3', nn.Conv2d(512, 512, kernel_size=3, padding=1, dilation=1, bias=True)),
+            ('bn4', nn.BatchNorm2d(512, momentum=self.momentum_bn)),
+            ('relu5', nn.ReLU(inplace=True)),
+            ('conv6', nn.Conv2d(512, num_classes, kernel_size=1))
+        ]))
 
-    def forward(self, x, labels):
+    def forward(self, x):
         x_size = x.size()
         x = self.features(x)
         x = F.relu(x, inplace=False)
@@ -120,13 +120,8 @@ class Dilated_sunet64_multi(nn.Module):
         x_size = x.size()
         x = self.features(x)
         x = F.relu(x, inplace=False)
-        
-        if task == 0:
-            x = self.final1(x)
-            x = F.upsample(input=x, size=x_size[2:], mode='bilinear', align_corners=True)
-        else:
-            x = self.final2(x)
-            x = F.upsample(input=x, size=x_size[2:], mode='bilinear', align_corners=True)
+        x = self.final1(x) if task == 0 else self.final2(x)
+        x = F.upsample(input=x, size=x_size[2:], mode='bilinear', align_corners=True)
         return x
 
 class SUNets(nn.Module):
