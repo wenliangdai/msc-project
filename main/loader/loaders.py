@@ -362,13 +362,38 @@ class SBD_LIP_LOADER(Loader):
             task = 0
         return img, mask, task
 
-    def get_pascal_labels(self):
-        return np.asarray([
-            [0,0,0], [128,0,0], [0,128,0], [128,128,0], [0,0,128], [128,0,128],
-            [0,128,128], [128,128,128], [64,0,0], [192,0,0], [64,128,0], [192,128,0],
-            [64,0,128], [192,0,128], [64,128,128], [192,128,128], [0,64,0], [128,64,0],
-            [0,192,0], [128,192,0], [0,64,128]
-        ])
+    def get_pascal_labels(self, task):
+        if task == 0:
+            return np.asarray([
+                [0,0,0], [128,0,0], [0,128,0], [128,128,0], [0,0,128], [128,0,128],
+                [0,128,128], [128,128,128], [64,0,0], [192,0,0], [64,128,0], [192,128,0],
+                [64,0,128], [192,0,128], [64,128,128], [192,128,128], [0,64,0], [128,64,0],
+                [0,192,0], [128,192,0], [0,64,128]
+            ])
+        else:
+            return np.asarray([
+                [0,0,0], [128,0,0], [0,128,0], [128,128,0], [0,0,128], [128,0,128], [0,128,128]
+            ])
+    
+    def decode_segmap(self, temp, task=0, plot=False):
+        label_colours = self.get_pascal_labels()
+        r = temp.copy()
+        g = temp.copy()
+        b = temp.copy()
+        for l in range(0, self.n_classes[task]):
+            r[temp == l] = label_colours[l, 0]
+            g[temp == l] = label_colours[l, 1]
+            b[temp == l] = label_colours[l, 2]
+
+        rgb = np.zeros((temp.shape[0], temp.shape[1], 3))
+        rgb[:, :, 0] = r
+        rgb[:, :, 1] = g
+        rgb[:, :, 2] = b
+        if plot:
+            plt.imshow(rgb)
+            plt.show()
+        else:
+            return rgb
 
     def preprocess(self, mode):
         sbd_items = self.sbd_loader.preprocess(mode)

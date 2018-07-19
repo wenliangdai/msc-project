@@ -54,9 +54,9 @@ def main(args):
     target_transform = extended_transforms.MaskToTensor()
 
     traindata = data_loader('train', n_classes=args.n_classes, transform=input_transform, target_transform=target_transform, do_transform=True)
-    trainloader = data.DataLoader(traindata, batch_size=args.batch_size, num_workers=2, shuffle=True)
+    trainloader = data.DataLoader(traindata, batch_size=args.batch_size, num_workers=1, shuffle=True)
     valdata = data_loader('val', n_classes=args.n_classes, transform=input_transform, target_transform=target_transform)
-    valloader = data.DataLoader(valdata, batch_size=args.batch_size, num_workers=2, shuffle=False)
+    valloader = data.DataLoader(valdata, batch_size=args.batch_size, num_workers=1, shuffle=False)
 
     n_classes = traindata.n_classes
     n_trainsamples_total = len(traindata)
@@ -312,11 +312,11 @@ def train(model, optimizers, criterion, trainloader, epoch, schedulers, data, co
         total_loss = total_loss / float(args.iter_size)
         total_loss.backward()
 
-        for i in range(3):
-            if counters[i] % counter_sizes[i] == 0:
-                optimizers[i].step()
-                optimizers[i].zero_grad()
-                schedulers[i].step()
+        for j in range(3):
+            if counters[j] % counter_sizes[j] == 0:
+                optimizers[j].step()
+                optimizers[j].zero_grad()
+                schedulers[j].step()
 
         l_avg[task] += loss.sum().data.cpu().numpy()
         steps[task] += total_valid_pixel
@@ -328,10 +328,10 @@ def train(model, optimizers, criterion, trainloader, epoch, schedulers, data, co
             pickle.dump(images[0].cpu().numpy(),
                         open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_input.p"), "wb"))
 
-            pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0)), [2, 0, 1]),
+            pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0), task=task), [2, 0, 1]),
                         open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_output.p"), "wb"))
 
-            pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy()), [2, 0, 1]),
+            pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy(), task=task), [2, 0, 1]),
                         open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
 
 def val(model, criterion, valloader, epoch, data):
@@ -361,14 +361,14 @@ def val(model, criterion, valloader, epoch, data):
             totalclasswise_gtpixels_test[task] += classwise_gtpixels.sum(0).data.cpu().numpy()
             totalclasswise_predpixels_test[task] += classwise_predpixels.sum(0).data.cpu().numpy()
 
-            if (i + 1) % 100 == 0:
+            if (i + 1) % 1000 == 0:
                 pickle.dump(images[0].cpu().numpy(),
                             open(os.path.join(ROOT, RESULT, "saved_val_images/" + str(epoch) + "_" + str(i) + "_input.p"), "wb"))
 
-                pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0)), [2, 0, 1]),
+                pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0), task=task), [2, 0, 1]),
                             open(os.path.join(ROOT, RESULT, "saved_val_images/" + str(epoch) + "_" + str(i) + "_output.p"), "wb"))
 
-                pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy()), [2, 0, 1]),
+                pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy(), task=task), [2, 0, 1]),
                             open(os.path.join(ROOT, RESULT, "saved_val_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
 
 
