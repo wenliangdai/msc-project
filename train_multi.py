@@ -143,6 +143,9 @@ def main(args):
     global l_avg, totalclasswise_pixel_acc, totalclasswise_gtpixels, totalclasswise_predpixels
     global l_avg_test, totalclasswise_pixel_acc_test, totalclasswise_gtpixels_test, totalclasswise_predpixels_test
     global steps, steps_test
+    global bug_counter
+
+    bug_counter = 0
 
     scheduler_common.step()
     scheduler_sbd.step()
@@ -233,22 +236,22 @@ def main(args):
             avg_pixel_acc = []
             mean_class_acc = []
             mIoU = []
-            avg_pixel_acc[0] = np.sum(totalclasswise_pixel_acc[0], axis=1) / np.sum(totalclasswise_gtpixels[0], axis=1)
-            mean_class_acc[0] = np.mean(totalclasswise_pixel_acc[0] / totalclasswise_gtpixels[0], axis=1)
-            mIoU[0] = np.mean(totalclasswise_pixel_acc[0] / (totalclasswise_gtpixels[0] + totalclasswise_predpixels[0] - totalclasswise_pixel_acc[0]), axis=1)
-            avg_pixel_acc[1] = np.sum(totalclasswise_pixel_acc[1], axis=1) / np.sum(totalclasswise_gtpixels[1], axis=1)
-            mean_class_acc[1] = np.mean(totalclasswise_pixel_acc[1] / totalclasswise_gtpixels[1], axis=1)
-            mIoU[1] = np.mean(totalclasswise_pixel_acc[1] / (totalclasswise_gtpixels[1] + totalclasswise_predpixels[1] - totalclasswise_pixel_acc[1]), axis=1)
+            avg_pixel_acc.append( np.sum(totalclasswise_pixel_acc[0], axis=1) / np.sum(totalclasswise_gtpixels[0], axis=1) )
+            mean_class_acc.append( np.mean(totalclasswise_pixel_acc[0] / totalclasswise_gtpixels[0], axis=1) )
+            mIoU.append( np.mean(totalclasswise_pixel_acc[0] / (totalclasswise_gtpixels[0] + totalclasswise_predpixels[0] - totalclasswise_pixel_acc[0]), axis=1) )
+            avg_pixel_acc.append( np.sum(totalclasswise_pixel_acc[1], axis=1) / np.sum(totalclasswise_gtpixels[1], axis=1) )
+            mean_class_acc.append( np.mean(totalclasswise_pixel_acc[1] / totalclasswise_gtpixels[1], axis=1) )
+            mIoU.append( np.mean(totalclasswise_pixel_acc[1] / (totalclasswise_gtpixels[1] + totalclasswise_predpixels[1] - totalclasswise_pixel_acc[1]), axis=1) )
 
             avg_pixel_acc_test = []
             mean_class_acc_test = []
             mIoU_test = []
-            avg_pixel_acc_test[0] = np.sum(totalclasswise_pixel_acc_test[0], axis=1) / np.sum(totalclasswise_gtpixels_test[0], axis=1)
-            mean_class_acc_test[0] = np.mean(totalclasswise_pixel_acc_test[0] / totalclasswise_gtpixels_test[0], axis=1)
-            mIoU_test[0] = np.mean(totalclasswise_pixel_acc_test[0] / (totalclasswise_gtpixels_test[0] + totalclasswise_predpixels_test[0] - totalclasswise_pixel_acc_test[0]), axis=1)
-            avg_pixel_acc_test[1] = np.sum(totalclasswise_pixel_acc_test[1], axis=1) / np.sum(totalclasswise_gtpixels_test[1], axis=1)
-            mean_class_acc_test[1] = np.mean(totalclasswise_pixel_acc_test[1] / totalclasswise_gtpixels_test[1], axis=1)
-            mIoU_test[1] = np.mean(totalclasswise_pixel_acc_test[1] / (totalclasswise_gtpixels_test[1] + totalclasswise_predpixels_test[1] - totalclasswise_pixel_acc_test[1]), axis=1)
+            avg_pixel_acc_test.append( np.sum(totalclasswise_pixel_acc_test[0], axis=1) / np.sum(totalclasswise_gtpixels_test[0], axis=1) )
+            mean_class_acc_test.append( np.mean(totalclasswise_pixel_acc_test[0] / totalclasswise_gtpixels_test[0], axis=1) )
+            mIoU_test.append( np.mean(totalclasswise_pixel_acc_test[0] / (totalclasswise_gtpixels_test[0] + totalclasswise_predpixels_test[0] - totalclasswise_pixel_acc_test[0]), axis=1) )
+            avg_pixel_acc_test.append( np.sum(totalclasswise_pixel_acc_test[1], axis=1) / np.sum(totalclasswise_gtpixels_test[1], axis=1) )
+            mean_class_acc_test.append( np.mean(totalclasswise_pixel_acc_test[1] / totalclasswise_gtpixels_test[1], axis=1) )
+            mIoU_test.append( np.mean(totalclasswise_pixel_acc_test[1] / (totalclasswise_gtpixels_test[1] + totalclasswise_predpixels_test[1] - totalclasswise_pixel_acc_test[1]), axis=1) )
 
         saved_accuracy = {
             "X": X, 
@@ -265,6 +268,7 @@ def main(args):
         this_mIoU1 = np.mean(totalclasswise_pixel_acc_test[0] / (totalclasswise_gtpixels_test[0] + totalclasswise_predpixels_test[0] - totalclasswise_pixel_acc_test[0]), axis=1)[0]
         this_mIoU2 = np.mean(totalclasswise_pixel_acc_test[1] / (totalclasswise_gtpixels_test[1] + totalclasswise_predpixels_test[1] - totalclasswise_pixel_acc_test[1]), axis=1)[0]
         print('Val: mIoU_sbd = {}, mIoU_lip = {}'.format(this_mIoU1, this_mIoU2))
+        print('bug_counter = {}'.format(bug_counter))
 
 # Incase one want to freeze BN params
 def set_bn_eval(m):
@@ -277,7 +281,7 @@ def set_bn_eval(m):
 def train(model, optimizers, criterion, trainloader, epoch, schedulers, data, counter_sizes):
     global l_avg, totalclasswise_pixel_acc, totalclasswise_gtpixels, totalclasswise_predpixels
     global steps
-    global counters
+    global counters, bug_counter
 
     model.train()
     
@@ -289,6 +293,8 @@ def train(model, optimizers, criterion, trainloader, epoch, schedulers, data, co
 
         if total_valid_pixel == 0:
             print('epoch {}, task {}: total_valid_pixel is {}'.format(epoch, task, total_valid_pixel))
+            bug_counter += 1
+            continue
 
         images = images.to(device)
         labels = labels.to(device)

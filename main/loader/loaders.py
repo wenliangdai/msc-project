@@ -80,6 +80,11 @@ class SEMSEG_LOADER(Loader):
         if mode == 'train':
             sbd_data_list = [l.strip('\n') for l in open(os.path.join(
                 sbd_path, 'dataset', 'trainval.txt')).readlines()]
+            # SBD dataset contains some of the voc_val samples, so we have to remove them
+            voc_val_data_list = [l.strip('\n') for l in open(os.path.join(
+                voc_path, 'ImageSets', 'Segmentation', 'val.txt')).readlines()]
+            sbd_data_list = list(set(sbd_data_list) - set(voc_val_data_list))
+
             for it in sbd_data_list:
                 item = (os.path.join(sbd_img_path, it + '.jpg'), os.path.join(sbd_mask_path, it + '.mat'))
                 items.append(item)
@@ -89,15 +94,6 @@ class SEMSEG_LOADER(Loader):
             for it in voc_data_list:
                 item = (os.path.join(voc_img_path, it + '.jpg'), os.path.join(voc_mask_path, it + '.png'))
                 items.append(item)
-            
-            # SBD dataset contains some of the voc_val samples, so we have to remove them
-            val_items = []
-            voc_val_data_list = [l.strip('\n') for l in open(os.path.join(
-                voc_path, 'ImageSets', 'Segmentation', 'val.txt')).readlines()]
-            for it in voc_val_data_list:
-                item = (os.path.join(voc_img_path, it + '.jpg'), os.path.join(voc_mask_path, it + '.png'))
-                val_items.append(item)    
-            items = list(set(items) - set(val_items))
         # Val data = VOC_val
         elif mode == 'val':
             data_list = [l.strip('\n') for l in open(os.path.join(
