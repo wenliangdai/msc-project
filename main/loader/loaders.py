@@ -401,6 +401,9 @@ class SBD_LIP_LOADER(Loader):
     def preprocess(self, mode):
         sbd_items = self.sbd_loader.preprocess(mode)
         lip_items = self.lip_loader.preprocess(mode)
+
+        # lip_items = lip_items[0:len(sbd_items)]
+
         return sbd_items + lip_items
 
 

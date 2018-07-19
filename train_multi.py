@@ -285,6 +285,11 @@ def train(model, optimizers, criterion, trainloader, epoch, schedulers, data, co
         model.apply(set_bn_eval)
 
     for i, (images, labels, task) in enumerate(trainloader):
+        total_valid_pixel = float(torch.sum( (labels.data != criterion.ignore_index).long() ))
+
+        if total_valid_pixel == 0:
+            print('epoch {}, task {}: total_valid_pixel is {}'.format(epoch, task, total_valid_pixel))
+
         images = images.to(device)
         labels = labels.to(device)
 
@@ -300,7 +305,8 @@ def train(model, optimizers, criterion, trainloader, epoch, schedulers, data, co
         outputs = model(images, task)
         loss = criterion(outputs, labels)
         
-        total_valid_pixel = float(torch.sum(labels.data != criterion.ignore_index))
+        
+        
         classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([outputs], labels, data.n_classes[task])
 
         classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc]).to(device)
