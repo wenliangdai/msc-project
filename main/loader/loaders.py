@@ -376,7 +376,7 @@ class SBD_LIP_LOADER(Loader):
             ])
     
     def decode_segmap(self, temp, task=0, plot=False):
-        label_colours = self.get_pascal_labels()
+        label_colours = self.get_pascal_labels(task)
         r = temp.copy()
         g = temp.copy()
         b = temp.copy()
