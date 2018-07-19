@@ -37,7 +37,9 @@ def get_model(name, n_classes, ignore_index=-1, weight=None, output_stride='16',
             init_params(model.final)
     elif name in ['fcn32vgg']:
         model = _get_model_instance(name)
-        model = model(num_classes=n_classes)
+        model = model(
+            num_classes=n_classes,
+            pretrained=pretrained)
     else:
         raise 'Model {} not available'.format(name)
     return model

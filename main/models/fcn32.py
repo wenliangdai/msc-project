@@ -5,9 +5,9 @@ from torchvision import models
 from utils import get_upsampling_weight
 
 class FCN32VGG(nn.Module):
-    def __init__(self, num_classes=21):
+    def __init__(self, num_classes=21, pretrained=False):
         super(FCN32VGG, self).__init__()
-        vgg = models.vgg16(pretrained=True)
+        vgg = models.vgg16(pretrained=pretrained)
         features, classifier = list(vgg.features.children()), list(vgg.classifier.children())
         
         # Why pad the input: 
