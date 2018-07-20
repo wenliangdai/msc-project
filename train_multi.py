@@ -115,13 +115,13 @@ def main(args):
         lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay,
         nesterov=(args.optim == 'Nesterov'))
     optimizer_sbd = torch.optim.SGD(
-        [{'params': final1_bias, 'lr': args.lr},
-         {'params': final1_nonbias, 'lr': args.lr}],
+        [{'params': final1_bias, 'lr': 20 * args.lr if args.pretrained else args.lr},
+         {'params': final1_nonbias, 'lr': 10 * args.lr if args.pretrained else args.lr}],
         lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay,
         nesterov=(args.optim == 'Nesterov'))
     optimizer_lip = torch.optim.SGD(
-        [{'params': final2_bias, 'lr': args.lr},
-         {'params': final2_nonbias, 'lr': args.lr}],
+        [{'params': final2_bias, 'lr': 20 * args.lr if args.pretrained else args.lr},
+         {'params': final2_nonbias, 'lr': 10 * args.lr if args.pretrained else args.lr}],
         lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay,
         nesterov=(args.optim == 'Nesterov'))
 
@@ -155,7 +155,9 @@ def main(args):
     global counters
     counters = [0, 0, 0]
 
-    criterion = nn.CrossEntropyLoss(size_average=False, ignore_index=traindata.ignore_index)
+    criterion_sbd = nn.CrossEntropyLoss(size_average=False, ignore_index=traindata.ignore_index)
+    criterion_lip = nn.CrossEntropyLoss(size_average=False, ignore_index=traindata.ignore_index)
+    criterions = [criterion_sbd, criterion_lip]
 
     for epoch in range(args.epochs):
         print('='*10, 'Epoch %d' % (epoch + 1), '='*10)
@@ -170,8 +172,8 @@ def main(args):
         steps = [0, 0]
         steps_test = [0, 0]
         
-        train(model, optimizers, criterion, trainloader, epoch, schedulers, traindata, counter_sizes)
-        val(model, criterion, valloader, epoch, valdata)
+        train(model, optimizers, criterions, trainloader, epoch, schedulers, traindata, counter_sizes)
+        val(model, criterions, valloader, epoch, valdata)
 
         # save the model every 5 epochs
         if (epoch + 1) % 5 == 0 or epoch == args.epochs - 1:
@@ -278,7 +280,7 @@ def set_bn_eval(m):
         m.weight.requires_grad = False
         m.bias.requires_grad = False
 
-def train(model, optimizers, criterion, trainloader, epoch, schedulers, data, counter_sizes):
+def train(model, optimizers, criterions, trainloader, epoch, schedulers, data, counter_sizes):
     global l_avg, totalclasswise_pixel_acc, totalclasswise_gtpixels, totalclasswise_predpixels
     global steps
     global counters, bug_counter
@@ -289,40 +291,51 @@ def train(model, optimizers, criterion, trainloader, epoch, schedulers, data, co
         model.apply(set_bn_eval)
 
     for i, (images, labels, task) in enumerate(trainloader):
-        total_valid_pixel = float(torch.sum( (labels.data != criterion.ignore_index).long() ))
+        # total_valid_pixel = float(torch.sum( (labels.data != criterion.ignore_index).long() ))
 
-        if total_valid_pixel == 0:
-            print('epoch {}, task {}: total_valid_pixel is {}'.format(epoch, task, total_valid_pixel))
-            bug_counter += 1
-            continue
+        # if total_valid_pixel == 0:
+        #     print('epoch {}, task {}: total_valid_pixel is {}'.format(epoch, task, total_valid_pixel))
+        #     bug_counter += 1
+        #     continue
+        
+        sbd_index = task == 0
+        lip_index = task == 1
 
-        images = images.to(device)
+        sbd_images = images[sbd_index]
+        lip_images = images[lip_index]
+        sbd_labels = labels[sbd_index]
+        lip_labels = labels[lip_index]
+
+        sbd_valid_pixel = float( (sbd_labels.data != criterions[0].ignore_index).long().sum() )
+        lip_valid_pixel = float( (lip_labels.data != criterions[1].ignore_index).long().sum() )
+
+        sbd_images = sbd_images.to(device)
+        lip_images = lip_images.to(device)
         labels = labels.to(device)
 
         # Increment common CNN's counter for each image
-        counters[0] += 1
+        counters[0] += images.size(0)
         if task == 0:
             # if is sbd image
-            counters[1] += 1
+            counters[1] += sbd_images.size(0)
         else:
             # if is lip image
-            counters[2] += 1
+            counters[2] += lip_images.size(0)
             
-        outputs = model(images, task)
-        loss = criterion(outputs, labels)
+        sbd_outputs = model(sbd_images, 0)
+        lip_outputs = model(lip_images, 1)
+        loss0 = criterions[0](sbd_outputs, sbd_labels)
+        loss1 = criterions[1](lip_outputs, lip_labels)
         
-        
-        
-        classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([outputs], labels, data.n_classes[task])
+        total_loss0 = loss0.sum()
+        total_loss0 = total_loss0 / sbd_valid_pixel
+        total_loss0 = total_loss0 / float(args.iter_size)
+        total_loss0.backward()
 
-        classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc]).to(device)
-        classwise_gtpixels = torch.FloatTensor([classwise_gtpixels]).to(device)
-        classwise_predpixels = torch.FloatTensor([classwise_predpixels]).to(device)
-
-        total_loss = loss.sum()
-        total_loss = total_loss / total_valid_pixel
-        total_loss = total_loss / float(args.iter_size)
-        total_loss.backward()
+        total_loss1 = loss1.sum()
+        total_loss1 = total_loss1 / lip_valid_pixel
+        total_loss1 = total_loss1 / float(args.iter_size)
+        total_loss1.backward()
 
         for j in range(3):
             if counters[j] % counter_sizes[j] == 0:
@@ -330,58 +343,83 @@ def train(model, optimizers, criterion, trainloader, epoch, schedulers, data, co
                 optimizers[j].zero_grad()
                 schedulers[j].step()
 
-        l_avg[task] += loss.sum().data.cpu().numpy()
-        steps[task] += total_valid_pixel
-        totalclasswise_pixel_acc[task] += classwise_pixel_acc.sum(0).data.cpu().numpy()
-        totalclasswise_gtpixels[task] += classwise_gtpixels.sum(0).data.cpu().numpy()
-        totalclasswise_predpixels[task] += classwise_predpixels.sum(0).data.cpu().numpy()
+        classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([sbd_outputs], sbd_labels, data.n_classes[0])
 
-        if (i + 1) % args.log_size == 0:
-            pickle.dump(images[0].cpu().numpy(),
-                        open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_input.p"), "wb"))
+        l_avg[0] += loss0.sum().data.cpu().numpy()
+        steps[0] += sbd_valid_pixel
+        totalclasswise_pixel_acc[0] += classwise_pixel_acc.data.numpy()
+        totalclasswise_gtpixels[0] += classwise_gtpixels.data.numpy()
+        totalclasswise_predpixels[0] += classwise_predpixels.data.numpy()
 
-            pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0), task=task), [2, 0, 1]),
-                        open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_output.p"), "wb"))
+        classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([lip_outputs], lip_labels, data.n_classes[1])
 
-            pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy(), task=task), [2, 0, 1]),
-                        open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
+        l_avg[1] += loss1.sum().data.cpu().numpy()
+        steps[1] += lip_valid_pixel
+        totalclasswise_pixel_acc[1] += classwise_pixel_acc.data.numpy()
+        totalclasswise_gtpixels[1] += classwise_gtpixels.data.numpy()
+        totalclasswise_predpixels[1] += classwise_predpixels.data.numpy()
 
-def val(model, criterion, valloader, epoch, data):
+        # if (i + 1) % args.log_size == 0:
+        #     pickle.dump(images[0].cpu().numpy(),
+        #                 open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_input.p"), "wb"))
+
+        #     pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0), task=task), [2, 0, 1]),
+        #                 open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_output.p"), "wb"))
+
+        #     pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy(), task=task), [2, 0, 1]),
+        #                 open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
+
+def val(model, criterions, valloader, epoch, data):
     global l_avg_test, totalclasswise_pixel_acc_test, totalclasswise_gtpixels_test, totalclasswise_predpixels_test
     global steps_test
 
     model.eval()
 
     for i, (images, labels, task) in enumerate(valloader):
-        images = images.to(device)
+        sbd_index = task == 0
+        lip_index = task == 1
+
+        sbd_images = images[sbd_index]
+        lip_images = images[lip_index]
+        sbd_labels = labels[sbd_index]
+        lip_labels = labels[lip_index]
+
+        sbd_valid_pixel = float( (sbd_labels.data != criterions[0].ignore_index).long().sum() )
+        lip_valid_pixel = float( (lip_labels.data != criterions[1].ignore_index).long().sum() )
+
+        sbd_images = sbd_images.to(device)
+        lip_images = lip_images.to(device)
         labels = labels.to(device)
 
         with torch.no_grad():
-            outputs = model(images, task)
-            loss = criterion(outputs, labels)
+            sbd_outputs = model(sbd_images, 0)
+            lip_outputs = model(lip_images, 1)
+            loss0 = criterions[0](sbd_outputs, sbd_labels)
+            loss1 = criterions[1](lip_outputs, lip_labels)
 
-            total_valid_pixel = float(torch.sum(labels.data != criterion.ignore_index))
-            classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([outputs], labels, data.n_classes[task])
+            classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([sbd_outputs], sbd_labels, data.n_classes[0])
+            l_avg_test[0] += loss0.sum().data.cpu().numpy()
+            steps_test[0] += sbd_valid_pixel
+            totalclasswise_pixel_acc_test[0] += classwise_pixel_acc.data.numpy()
+            totalclasswise_gtpixels_test[0] += classwise_gtpixels.data.numpy()
+            totalclasswise_predpixels_test[0] += classwise_predpixels.data.numpy()
 
-            classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc]).to(device)
-            classwise_gtpixels = torch.FloatTensor([classwise_gtpixels]).to(device)
-            classwise_predpixels = torch.FloatTensor([classwise_predpixels]).to(device)
+            classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([lip_outputs], lip_labels, data.n_classes[1])
+            l_avg_test[1] += loss1.sum().data.cpu().numpy()
+            steps_test[1] += lip_valid_pixel
+            totalclasswise_pixel_acc_test[1] += classwise_pixel_acc.data.numpy()
+            totalclasswise_gtpixels_test[1] += classwise_gtpixels.data.numpy()
+            totalclasswise_predpixels_test[1] += classwise_predpixels.data.numpy()
 
-            l_avg_test[task] += loss.sum().data.cpu().numpy()
-            steps_test[task] += total_valid_pixel
-            totalclasswise_pixel_acc_test[task] += classwise_pixel_acc.sum(0).data.cpu().numpy()
-            totalclasswise_gtpixels_test[task] += classwise_gtpixels.sum(0).data.cpu().numpy()
-            totalclasswise_predpixels_test[task] += classwise_predpixels.sum(0).data.cpu().numpy()
+            # if (i + 1) % 1000 == 0:
+            #     pickle.dump(images[0].cpu().numpy(),
+            #                 open(os.path.join(ROOT, RESULT, "saved_val_images/" + str(epoch) + "_" + str(i) + "_input.p"), "wb"))
 
-            if (i + 1) % 1000 == 0:
-                pickle.dump(images[0].cpu().numpy(),
-                            open(os.path.join(ROOT, RESULT, "saved_val_images/" + str(epoch) + "_" + str(i) + "_input.p"), "wb"))
+            #     pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0), task=task), [2, 0, 1]),
+            #                 open(os.path.join(ROOT, RESULT, "saved_val_images/" + str(epoch) + "_" + str(i) + "_output.p"), "wb"))
 
-                pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0), task=task), [2, 0, 1]),
-                            open(os.path.join(ROOT, RESULT, "saved_val_images/" + str(epoch) + "_" + str(i) + "_output.p"), "wb"))
-
-                pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy(), task=task), [2, 0, 1]),
-                            open(os.path.join(ROOT, RESULT, "saved_val_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
+            #     pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy(), task=task), [2, 0, 1]),
+            #                 open(os.path.join(ROOT, RESULT, "saved_val_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
 
 
 
@@ -435,7 +473,7 @@ if __name__ == '__main__':
     global args
     args = parser.parse_args()
 
-    RESULT = RESULT + args.dataset
+    RESULT = '{}_{}_{}'.format(RESULT, args.arch, args.dataset)
     if args.pretrained:
         RESULT = RESULT + '_pretrained'
     

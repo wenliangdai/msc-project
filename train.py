@@ -406,7 +406,7 @@ if __name__ == '__main__':
     global args
     args = parser.parse_args()
     
-    RESULT = RESULT + args.dataset
+    RESULT = '{}_{}_{}'.format(RESULT, args.arch, args.dataset)
     if args.pretrained:
         RESULT = RESULT + '_pretrained'
     
