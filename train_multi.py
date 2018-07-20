@@ -60,8 +60,8 @@ def main(args):
 
     n_classes = traindata.n_classes
     n_trainsamples_total = len(traindata)
-    n_trainsamples_lip = 28280
-    n_trainsamples_sbd = n_trainsamples_total - n_trainsamples_lip
+    n_trainsamples_lip = n_trainsamples_total / 2
+    n_trainsamples_sbd = n_trainsamples_total / 2
     n_iters_per_epoch_common = np.ceil(n_trainsamples_total / float(20))
     n_iters_per_epoch_lip = np.ceil(n_trainsamples_lip / float(10))
     n_iters_per_epoch_sbd = np.ceil(n_trainsamples_sbd / float(10))
@@ -338,10 +338,11 @@ def train(model, optimizers, criterions, trainloader, epoch, schedulers, data, c
         total_loss1.backward()
 
         for j in range(3):
-            if counters[j] % counter_sizes[j] == 0:
+            if counters[j] >= counter_sizes[j]:
                 optimizers[j].step()
                 optimizers[j].zero_grad()
                 schedulers[j].step()
+                counters[j] -= counter_sizes[j]
 
         classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([sbd_outputs], sbd_labels, data.n_classes[0])
 
