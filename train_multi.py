@@ -315,13 +315,9 @@ def train(model, optimizers, criterions, trainloader, epoch, schedulers, data, c
 
         # Increment common CNN's counter for each image
         counters[0] += images.size(0)
-        if task == 0:
-            # if is sbd image
-            counters[1] += sbd_images.size(0)
-        else:
-            # if is lip image
-            counters[2] += lip_images.size(0)
-            
+        counters[1] += sbd_images.size(0)
+        counters[2] += lip_images.size(0)
+           
         sbd_outputs = model(sbd_images, 0)
         lip_outputs = model(lip_images, 1)
         loss0 = criterions[0](sbd_outputs, sbd_labels)
