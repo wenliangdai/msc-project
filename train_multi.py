@@ -311,7 +311,8 @@ def train(model, optimizers, criterions, trainloader, epoch, schedulers, data, c
 
         sbd_images = sbd_images.to(device)
         lip_images = lip_images.to(device)
-        labels = labels.to(device)
+        sbd_labels = sbd_labels.to(device)
+        lip_labels = lip_labels.to(device)
 
         # Increment common CNN's counter for each image
         counters[0] += images.size(0)
