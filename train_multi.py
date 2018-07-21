@@ -401,7 +401,8 @@ def val(model, criterions, valloader, epoch, data):
 
         sbd_images = sbd_images.to(device)
         lip_images = lip_images.to(device)
-        labels = labels.to(device)
+        sbd_labels = sbd_labels.to(device)
+        lip_labels = lip_labels.to(device)
 
         with torch.no_grad():
             if num_sbd > 0:
