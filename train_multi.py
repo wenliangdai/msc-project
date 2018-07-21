@@ -22,7 +22,7 @@ from utils import dotdict, float2str
 
 # paths
 ROOT = '/home/wenlidai/sunets-reproduce/'
-RESULT = 'results_'
+RESULT = 'results'
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
