@@ -306,6 +306,9 @@ def train(model, optimizers, criterions, trainloader, epoch, schedulers, data, c
         sbd_labels = labels[sbd_index]
         lip_labels = labels[lip_index]
 
+        num_sbd = sbd_images.size(0)
+        num_lip = lip_images.size(0)
+
         sbd_valid_pixel = float( (sbd_labels.data != criterions[0].ignore_index).long().sum() )
         lip_valid_pixel = float( (lip_labels.data != criterions[1].ignore_index).long().sum() )
 
@@ -316,23 +319,47 @@ def train(model, optimizers, criterions, trainloader, epoch, schedulers, data, c
 
         # Increment common CNN's counter for each image
         counters[0] += images.size(0)
-        counters[1] += sbd_images.size(0)
-        counters[2] += lip_images.size(0)
-           
-        sbd_outputs = model(sbd_images, 0)
-        lip_outputs = model(lip_images, 1)
-        loss0 = criterions[0](sbd_outputs, sbd_labels)
-        loss1 = criterions[1](lip_outputs, lip_labels)
+        counters[1] += num_sbd
+        counters[2] += num_lip
         
-        total_loss0 = loss0.sum()
-        total_loss0 = total_loss0 / sbd_valid_pixel
-        total_loss0 = total_loss0 / float(args.iter_size)
-        total_loss0.backward()
+        if num_sbd > 0:
+            sbd_outputs = model(sbd_images, 0)
+            loss0 = criterions[0](sbd_outputs, sbd_labels)
 
-        total_loss1 = loss1.sum()
-        total_loss1 = total_loss1 / lip_valid_pixel
-        total_loss1 = total_loss1 / float(args.iter_size)
-        total_loss1.backward()
+            total_loss0 = loss0.sum()
+            total_loss0 = total_loss0 / sbd_valid_pixel
+            total_loss0 = total_loss0 / float(args.iter_size)
+            total_loss0.backward()
+
+            classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([sbd_outputs], sbd_labels, data.n_classes[0])
+            classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc])
+            classwise_gtpixels = torch.FloatTensor([classwise_gtpixels])
+            classwise_predpixels = torch.FloatTensor([classwise_predpixels])
+
+            l_avg[0] += loss0.sum().data.cpu().numpy()
+            steps[0] += sbd_valid_pixel
+            totalclasswise_pixel_acc[0] += classwise_pixel_acc.sum(0).data.numpy()
+            totalclasswise_gtpixels[0] += classwise_gtpixels.sum(0).data.numpy()
+            totalclasswise_predpixels[0] += classwise_predpixels.sum(0).data.numpy()
+        if num_lip > 0:
+            lip_outputs = model(lip_images, 1)
+            loss1 = criterions[1](lip_outputs, lip_labels)
+
+            total_loss1 = loss1.sum()
+            total_loss1 = total_loss1 / lip_valid_pixel
+            total_loss1 = total_loss1 / float(args.iter_size)
+            total_loss1.backward()
+
+            classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([lip_outputs], lip_labels, data.n_classes[1])
+            classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc])
+            classwise_gtpixels = torch.FloatTensor([classwise_gtpixels])
+            classwise_predpixels = torch.FloatTensor([classwise_predpixels])
+
+            l_avg[1] += loss1.sum().data.cpu().numpy()
+            steps[1] += lip_valid_pixel
+            totalclasswise_pixel_acc[1] += classwise_pixel_acc.sum(0).data.numpy()
+            totalclasswise_gtpixels[1] += classwise_gtpixels.sum(0).data.numpy()
+            totalclasswise_predpixels[1] += classwise_predpixels.sum(0).data.numpy()
 
         for j in range(3):
             if counters[j] >= counter_sizes[j]:
@@ -340,28 +367,6 @@ def train(model, optimizers, criterions, trainloader, epoch, schedulers, data, c
                 optimizers[j].zero_grad()
                 schedulers[j].step()
                 counters[j] -= counter_sizes[j]
-
-        classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([sbd_outputs], sbd_labels, data.n_classes[0])
-        classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc])
-        classwise_gtpixels = torch.FloatTensor([classwise_gtpixels])
-        classwise_predpixels = torch.FloatTensor([classwise_predpixels])
-
-        l_avg[0] += loss0.sum().data.cpu().numpy()
-        steps[0] += sbd_valid_pixel
-        totalclasswise_pixel_acc[0] += classwise_pixel_acc.sum(0).data.numpy()
-        totalclasswise_gtpixels[0] += classwise_gtpixels.sum(0).data.numpy()
-        totalclasswise_predpixels[0] += classwise_predpixels.sum(0).data.numpy()
-
-        classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([lip_outputs], lip_labels, data.n_classes[1])
-        classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc])
-        classwise_gtpixels = torch.FloatTensor([classwise_gtpixels])
-        classwise_predpixels = torch.FloatTensor([classwise_predpixels])
-
-        l_avg[1] += loss1.sum().data.cpu().numpy()
-        steps[1] += lip_valid_pixel
-        totalclasswise_pixel_acc[1] += classwise_pixel_acc.sum(0).data.numpy()
-        totalclasswise_gtpixels[1] += classwise_gtpixels.sum(0).data.numpy()
-        totalclasswise_predpixels[1] += classwise_predpixels.sum(0).data.numpy()
 
         # if (i + 1) % args.log_size == 0:
         #     pickle.dump(images[0].cpu().numpy(),
@@ -388,6 +393,9 @@ def val(model, criterions, valloader, epoch, data):
         sbd_labels = labels[sbd_index]
         lip_labels = labels[lip_index]
 
+        num_sbd = sbd_images.size(0)
+        num_lip = lip_images.size(0)
+
         sbd_valid_pixel = float( (sbd_labels.data != criterions[0].ignore_index).long().sum() )
         lip_valid_pixel = float( (lip_labels.data != criterions[1].ignore_index).long().sum() )
 
@@ -396,32 +404,34 @@ def val(model, criterions, valloader, epoch, data):
         labels = labels.to(device)
 
         with torch.no_grad():
-            sbd_outputs = model(sbd_images, 0)
-            lip_outputs = model(lip_images, 1)
-            loss0 = criterions[0](sbd_outputs, sbd_labels)
-            loss1 = criterions[1](lip_outputs, lip_labels)
+            if num_sbd > 0:
+                sbd_outputs = model(sbd_images, 0)
+                loss0 = criterions[0](sbd_outputs, sbd_labels)
 
-            classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([sbd_outputs], sbd_labels, data.n_classes[0])
-            classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc])
-            classwise_gtpixels = torch.FloatTensor([classwise_gtpixels])
-            classwise_predpixels = torch.FloatTensor([classwise_predpixels])
+                classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([sbd_outputs], sbd_labels, data.n_classes[0])
+                classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc])
+                classwise_gtpixels = torch.FloatTensor([classwise_gtpixels])
+                classwise_predpixels = torch.FloatTensor([classwise_predpixels])
 
-            l_avg_test[0] += loss0.sum().data.cpu().numpy()
-            steps_test[0] += sbd_valid_pixel
-            totalclasswise_pixel_acc_test[0] += classwise_pixel_acc.sum(0).data.numpy()
-            totalclasswise_gtpixels_test[0] += classwise_gtpixels.sum(0).data.numpy()
-            totalclasswise_predpixels_test[0] += classwise_predpixels.sum(0).data.numpy()
+                l_avg_test[0] += loss0.sum().data.cpu().numpy()
+                steps_test[0] += sbd_valid_pixel
+                totalclasswise_pixel_acc_test[0] += classwise_pixel_acc.sum(0).data.numpy()
+                totalclasswise_gtpixels_test[0] += classwise_gtpixels.sum(0).data.numpy()
+                totalclasswise_predpixels_test[0] += classwise_predpixels.sum(0).data.numpy()
+            if num_lip > 0:
+                lip_outputs = model(lip_images, 1)
+                loss1 = criterions[1](lip_outputs, lip_labels)
 
-            classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([lip_outputs], lip_labels, data.n_classes[1])
-            classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc])
-            classwise_gtpixels = torch.FloatTensor([classwise_gtpixels])
-            classwise_predpixels = torch.FloatTensor([classwise_predpixels])
-            
-            l_avg_test[1] += loss1.sum().data.cpu().numpy()
-            steps_test[1] += lip_valid_pixel
-            totalclasswise_pixel_acc_test[1] += classwise_pixel_acc.sum(0).data.numpy()
-            totalclasswise_gtpixels_test[1] += classwise_gtpixels.sum(0).data.numpy()
-            totalclasswise_predpixels_test[1] += classwise_predpixels.sum(0).data.numpy()
+                classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([lip_outputs], lip_labels, data.n_classes[1])
+                classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc])
+                classwise_gtpixels = torch.FloatTensor([classwise_gtpixels])
+                classwise_predpixels = torch.FloatTensor([classwise_predpixels])
+                
+                l_avg_test[1] += loss1.sum().data.cpu().numpy()
+                steps_test[1] += lip_valid_pixel
+                totalclasswise_pixel_acc_test[1] += classwise_pixel_acc.sum(0).data.numpy()
+                totalclasswise_gtpixels_test[1] += classwise_gtpixels.sum(0).data.numpy()
+                totalclasswise_predpixels_test[1] += classwise_predpixels.sum(0).data.numpy()
 
             # if (i + 1) % 1000 == 0:
             #     pickle.dump(images[0].cpu().numpy(),
@@ -441,7 +451,7 @@ if __name__ == '__main__':
                         help='Architecture to use [\'sunet64, sunet128, sunet7128 etc\']')
     parser.add_argument('--model_path', help='Path to the saved model', type=str)
     parser.add_argument('--best_model_path', help='Path to the saved best model', type=str)
-    parser.add_argument('--dataset', nargs='?', type=str, default='sbd',
+    parser.add_argument('--dataset', nargs='?', type=str, default='sbd_lip',
                         help='Dataset to use [\'sbd, coco, cityscapes etc\']')
     parser.add_argument('--img_rows', nargs='?', type=int, default=512,
                         help='Height of the input image')
