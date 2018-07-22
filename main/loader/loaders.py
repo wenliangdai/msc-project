@@ -222,12 +222,9 @@ class LIP_LOADER(Loader):
                 items.append(item)
         return items
 
-class PASCAL_HUMAN_LOADER(Loader):
-    def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False, task='semseg'):
-        if task not in ['semseg', 'parts', 'both']:
-            raise ValueError('PASCAL_HUMAN_LOADER: task should be in values of [`semseg`, `parts`, `both`]')
-        self.task = task
-        super(PASCAL_HUMAN_LOADER, self).__init__(
+class PASCAL_HUMAN_SEMSEG_LOADER(Loader):
+    def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False):
+        super(PASCAL_HUMAN_SEMSEG_LOADER, self).__init__(
             mode, 
             n_classes, 
             transform, 
@@ -257,18 +254,12 @@ class PASCAL_HUMAN_LOADER(Loader):
         return img, mask
 
     def get_pascal_labels(self):
-        if self.task == 'semseg':
-            return np.asarray([
-                [0,0,0], [128,0,0], [0,128,0], [128,128,0], [0,0,128], [128,0,128],
-                [0,128,128], [128,128,128], [64,0,0], [192,0,0], [64,128,0], [192,128,0],
-                [64,0,128], [192,0,128], [64,128,128], [192,128,128], [0,64,0], [128,64,0],
-                [0,192,0], [128,192,0], [0,64,128]
-            ])
-        elif self.task == 'parts':
-            return np.asarray([
-                [0,0,0], [128,0,0], [0,128,0], [128,128,0], 
-                [0,0,128], [128,0,128], [0,128,128]
-            ])
+        return np.asarray([
+            [0,0,0], [128,0,0], [0,128,0], [128,128,0], [0,0,128], [128,0,128],
+            [0,128,128], [128,128,128], [64,0,0], [192,0,0], [64,128,0], [192,128,0],
+            [64,0,128], [192,0,128], [64,128,128], [192,128,128], [0,64,0], [128,64,0],
+            [0,192,0], [128,192,0], [0,64,128]
+        ])
     
     def preprocess(self, mode):
         assert mode in ['train', 'val', 'test']
@@ -286,24 +277,177 @@ class PASCAL_HUMAN_LOADER(Loader):
             s = open(os.path.join(sbd_data_path, 'dataset', 'val.txt')).readlines()
             lines = list(set(p).intersection(s))
             data_list = [l.strip('\n') for l in lines]
+        
         img_path = os.path.join(sbd_data_path, 'dataset', 'img')
+        mask_path = os.path.join(sbd_data_path, 'dataset', 'cls')
+        
+        for it in data_list:
+            item = (os.path.join(img_path, it + '.jpg'), os.path.join(mask_path, it + '.mat'))
+            items.append(item)
 
-        if self.task == 'semseg':
-            mask_path = os.path.join(sbd_data_path, 'dataset', 'cls')
-            for it in data_list:
-                item = (os.path.join(img_path, it + '.jpg'), os.path.join(mask_path, it + '.mat'))
-                items.append(item)
-        elif self.task == 'parts':
-            mask_path = os.path.join(pascal_data_path, 'ImageSets', 'Person', 'gt')
-            for it in data_list:
-                item = (os.path.join(img_path, it + '.jpg'), os.path.join(mask_path, it + '.png'))
-                items.append(item)
+        return items
+
+class PASCAL_HUMAN_PARTS_LOADER(Loader):
+    def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False):
+        super(PASCAL_HUMAN_PARTS_LOADER, self).__init__(
+            mode, 
+            n_classes, 
+            transform, 
+            target_transform, 
+            img_size, 
+            ignore_index, 
+            do_transform)
+    
+    def __getitem__(self, index):
+        img_path, mask_path = self.imgs[index]
+        img = Image.open(img_path).convert('RGB')
+        if mask_path.split('.')[-1] == 'mat':
+            mask = sio.loadmat(mask_path)['GTcls']['Segmentation'][0][0]
+            mask = Image.fromarray(mask.astype(np.uint8)).convert('P')
         else:
-            semseg_mask_path = os.path.join(sbd_data_path, 'dataset', 'cls')
-            parts_mask_path = os.path.join(pascal_data_path, 'ImageSets', 'Person', 'gt')
-            for it in data_list:
-                item = (os.path.join(img_path, it + '.jpg'), os.path.join(semseg_mask_path, it + '.mat'), os.path.join(parts_mask_path, it + '.png'))
-                items.append(item)
+            mask = Image.open(mask_path).convert('P')
+
+        if self.do_transform:
+            img, mask = self.further_transform(img, mask)
+        else:
+            img, mask = self.crop(img, mask)
+
+        if self.transform is not None:
+            img = self.transform(img)
+        if self.target_transform is not None:
+            mask = self.target_transform(mask)
+        return img, mask
+
+    def get_pascal_labels(self):
+        return np.asarray([
+            [0,0,0], [128,0,0], [0,128,0], [128,128,0], 
+            [0,0,128], [128,0,128], [0,128,128]
+        ])
+    
+    def preprocess(self, mode):
+        assert mode in ['train', 'val', 'test']
+        pascal_data_path = get_data_path('pascal')
+        sbd_data_path = get_data_path('sbd')
+        items = []
+
+        if mode == 'train':
+            p = open(os.path.join(pascal_data_path, 'ImageSets', 'Person', 'train.txt')).readlines()
+            s = open(os.path.join(sbd_data_path, 'dataset', 'train.txt')).readlines()
+            lines = list(set(p).intersection(s))
+            data_list = [l.strip('\n') for l in lines]
+        elif mode == 'val':
+            p = open(os.path.join(pascal_data_path, 'ImageSets', 'Person', 'val.txt')).readlines()
+            s = open(os.path.join(sbd_data_path, 'dataset', 'val.txt')).readlines()
+            lines = list(set(p).intersection(s))
+            data_list = [l.strip('\n') for l in lines]
+        
+        img_path = os.path.join(sbd_data_path, 'dataset', 'img')
+        mask_path = os.path.join(pascal_data_path, 'ImageSets', 'Person', 'gt')
+
+        for it in data_list:
+            item = (os.path.join(img_path, it + '.jpg'), os.path.join(mask_path, it + '.png'))
+            items.append(item)
+
+        return items
+
+class PASCAL_HUMAN_LOADER(Loader):
+    def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False):
+        super(PASCAL_HUMAN_LOADER, self).__init__(
+            mode, 
+            n_classes, 
+            transform, 
+            target_transform, 
+            img_size, 
+            ignore_index, 
+            do_transform)
+    
+    def __getitem__(self, index):
+        img_path, sbd_mask_path, lip_mask_path = self.imgs[index]
+        img = Image.open(img_path).convert('RGB')
+        if sbd_mask_path.split('.')[-1] == 'mat':
+            sbd_mask = sio.loadmat(sbd_mask_path)['GTcls']['Segmentation'][0][0]
+            sbd_mask = Image.fromarray(sbd_mask.astype(np.uint8)).convert('P')
+        else:
+            sbd_mask = Image.open(sbd_mask_path).convert('P')
+        if lip_mask_path.split('.')[-1] == 'mat':
+            lip_mask = sio.loadmat(lip_mask_path)['GTcls']['Segmentation'][0][0]
+            lip_mask = Image.fromarray(lip_mask.astype(np.uint8)).convert('P')
+        else:
+            lip_mask = Image.open(lip_mask_path).convert('P')
+
+        if self.do_transform:
+            img_transformed, sbd_mask = self.further_transform(img, sbd_mask)
+            _, lip_mask = self.further_transform(img, lip_mask)
+        else:
+            img_transformed, sbd_mask = self.crop(img, sbd_mask)
+            _, lip_mask = self.crop(img, lip_mask)
+
+        if self.transform is not None:
+            img_transformed = self.transform(img_transformed)
+        if self.target_transform is not None:
+            sbd_mask = self.target_transform(sbd_mask)
+            lip_mask = self.target_transform(lip_mask)
+        
+        return img_transformed, sbd_mask, lip_mask
+
+    def get_pascal_labels(self):
+        return np.asarray([
+            [0,0,0], [128,0,0], [0,128,0], [128,128,0], [0,0,128], [128,0,128],
+            [0,128,128], [128,128,128], [64,0,0], [192,0,0], [64,128,0], [192,128,0],
+            [64,0,128], [192,0,128], [64,128,128], [192,128,128], [0,64,0], [128,64,0],
+            [0,192,0], [128,192,0], [0,64,128]
+        ])
+    
+    def decode_segmap(self, temp, plot=False, task=0):
+        label_colours = self.get_pascal_labels()
+        if task == 1:
+            label_colours = label_colours[0:7]
+        r = temp.copy()
+        g = temp.copy()
+        b = temp.copy()
+        for l in range(0, self.n_classes[task]):
+            r[temp == l] = label_colours[l, 0]
+            g[temp == l] = label_colours[l, 1]
+            b[temp == l] = label_colours[l, 2]
+
+        rgb = np.zeros((temp.shape[0], temp.shape[1], 3))
+        rgb[:, :, 0] = r
+        rgb[:, :, 1] = g
+        rgb[:, :, 2] = b
+        if plot:
+            plt.imshow(rgb)
+            plt.show()
+        else:
+            return rgb
+    
+    def preprocess(self, mode):
+        assert mode in ['train', 'val', 'test']
+        pascal_data_path = get_data_path('pascal')
+        sbd_data_path = get_data_path('sbd')
+        items = []
+
+        if mode == 'train':
+            p = open(os.path.join(pascal_data_path, 'ImageSets', 'Person', 'train.txt')).readlines()
+            s = open(os.path.join(sbd_data_path, 'dataset', 'train.txt')).readlines()
+            lines = list(set(p).intersection(s))
+            data_list = [l.strip('\n') for l in lines]
+        elif mode == 'val':
+            p = open(os.path.join(pascal_data_path, 'ImageSets', 'Person', 'val.txt')).readlines()
+            s = open(os.path.join(sbd_data_path, 'dataset', 'val.txt')).readlines()
+            lines = list(set(p).intersection(s))
+            data_list = [l.strip('\n') for l in lines]
+        
+        img_path = os.path.join(sbd_data_path, 'dataset', 'img')
+        semseg_mask_path = os.path.join(sbd_data_path, 'dataset', 'cls')
+        parts_mask_path = os.path.join(pascal_data_path, 'ImageSets', 'Person', 'gt')
+        
+        for it in data_list:
+            item = (
+                os.path.join(img_path, it + '.jpg'), 
+                os.path.join(semseg_mask_path, it + '.mat'), 
+                os.path.join(parts_mask_path, it + '.png')
+            )
+            items.append(item)
         return items
 
 class SBD_LIP_LOADER(Loader):

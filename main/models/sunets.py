@@ -120,9 +120,26 @@ class Dilated_sunet64_multi(nn.Module):
         x_size = x.size()
         x = self.features(x)
         x = F.relu(x, inplace=False)
-        x = self.final1(x) if task == 0 else self.final2(x)
-        x = F.upsample(input=x, size=x_size[2:], mode='bilinear', align_corners=True)
-        return x
+        
+        # SBD
+        if task == 0:
+            x = self.final1(x)
+            x = F.upsample(input=x, size=x_size[2:], mode='bilinear', align_corners=True)
+            return x
+        
+        # LIP
+        if task == 1:
+            x = self.final2(x)
+            x = F.upsample(input=x, size=x_size[2:], mode='bilinear', align_corners=True)
+            return x
+        
+        # Human (one image has both two masks)
+        if task == 2:
+            x1 = self.final1(x)
+            x1 = F.upsample(input=x1, size=x_size[2:], mode='bilinear', align_corners=True)
+            x2 = self.final1(x)
+            x2 = F.upsample(input=x2, size=x_size[2:], mode='bilinear', align_corners=True)
+            return x1, x2
 
 class SUNets(nn.Module):
     def __init__(self, in_dim, start_planes=16, filters_base=64, num_classes=1000, depth=1, dprob=1e-7, output_stride='32'):
