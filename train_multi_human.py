@@ -75,8 +75,10 @@ def main(args):
 
     epochs_done=0
     X=[]
-    Y=[]
-    Y_test=[]
+    Y1=[]
+    Y1_test=[]
+    Y2=[]
+    Y2_test=[]
     avg_pixel_acc = 0
     mean_class_acc = 0
     mIoU = 0
@@ -278,15 +280,15 @@ def train(model, optimizer, criterions, trainloader, epoch, scheduler, data):
     model.train()
 
     for i, (images, sbd_labels, lip_labels) in enumerate(trainloader):
-        sbd_valid_pixel = float( (sbd_labels.data != criterion[0].ignore_index).long().sum() )
-        lip_valid_pixel = float( (lip_labels.data != criterion[1].ignore_index).long().sum() )
+        sbd_valid_pixel = float( (sbd_labels.data != criterions[0].ignore_index).long().sum() )
+        lip_valid_pixel = float( (lip_labels.data != criterions[1].ignore_index).long().sum() )
 
         images = images.to(device)
         sbd_labels = sbd_labels.to(device)
         lip_labels = lip_labels.to(device)
         
         sbd_outputs, lip_outputs = model(images, task=2)
-        sbd_loss = criterion[0](sbd_outputs, sbd_labels)
+        sbd_loss = criterions[0](sbd_outputs, sbd_labels)
         
         classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([sbd_outputs], sbd_labels, data.n_classes[0])
         classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc])
@@ -301,7 +303,7 @@ def train(model, optimizer, criterions, trainloader, epoch, scheduler, data):
         sbd_total_loss = sbd_total_loss / float(sbd_valid_pixel)
         sbd_total_loss.backward()
 
-        lip_loss = criterion[1](lip_outputs, lip_labels)
+        lip_loss = criterions[1](lip_outputs, lip_labels)
 
         classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([lip_outputs], lip_labels, data.n_classes[1])
         classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc])
@@ -342,8 +344,8 @@ def val(model, criterions, valloader, epoch, data):
     model.eval()
 
     for i, (images, sbd_labels, lip_labels) in enumerate(valloader):
-        sbd_valid_pixel = float( (sbd_labels.data != criterion.ignore_index).long().sum() )
-        lip_valid_pixel = float( (lip_labels.data != criterion.ignore_index).long().sum() )
+        sbd_valid_pixel = float( (sbd_labels.data != criterions[0].ignore_index).long().sum() )
+        lip_valid_pixel = float( (lip_labels.data != criterions[1].ignore_index).long().sum() )
 
         images = images.to(device)
         sbd_labels = sbd_labels.to(device)
