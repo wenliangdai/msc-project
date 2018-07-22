@@ -220,7 +220,7 @@ class LIP_LOADER(Loader):
             for it in data_list:
                 item = (os.path.join(img_path, it + '.jpg'), os.path.join(mask_path, it + '.png'))
                 items.append(item)
-        return items
+        return items[0:11716]
 
 class PASCAL_HUMAN_SEMSEG_LOADER(Loader):
     def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False):
