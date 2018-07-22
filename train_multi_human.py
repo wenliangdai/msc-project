@@ -301,7 +301,7 @@ def train(model, optimizer, criterions, trainloader, epoch, scheduler, data):
 
         sbd_total_loss = sbd_loss.sum()
         sbd_total_loss = sbd_total_loss / float(sbd_valid_pixel)
-        sbd_total_loss.backward()
+        sbd_total_loss.backward(retain_graph=True)
 
         lip_loss = criterions[1](lip_outputs, lip_labels)
 
@@ -318,13 +318,13 @@ def train(model, optimizer, criterions, trainloader, epoch, scheduler, data):
         lip_total_loss = lip_total_loss / float(lip_valid_pixel)
         lip_total_loss.backward()
 
-        optimizer.step()
-
         l_avg[0] += sbd_loss.sum().data.cpu().numpy()
         steps[0] += sbd_valid_pixel
         l_avg[1] += lip_loss.sum().data.cpu().numpy()
         steps[1] += lip_valid_pixel
 
+        optimizer.step()
+        optimizer.zero_grad()
         scheduler.step()
 
         # if (i + 1) % args.log_size == 0:
