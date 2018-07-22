@@ -160,7 +160,9 @@ def main(args):
     global l_avg_test, totalclasswise_pixel_acc_test, totalclasswise_gtpixels_test, totalclasswise_predpixels_test
     global steps, steps_test
 
-    criterion = nn.CrossEntropyLoss(size_average=False, ignore_index=traindata.ignore_index)
+    criterion_sbd = nn.CrossEntropyLoss(size_average=False, ignore_index=traindata.ignore_index)
+    criterion_lip = nn.CrossEntropyLoss(size_average=False, ignore_index=traindata.ignore_index)
+    criterions = [criterion_sbd, criterion_lip]
 
     for epoch in range(epochs_done, args.epochs):
         print('='*10, 'Epoch %d' % (epoch + 1), '='*10)
@@ -176,8 +178,8 @@ def main(args):
         steps_test = [0, 0]
         
         # scheduler.step()
-        train(model, optimizer, criterion, trainloader, epoch, scheduler, traindata)
-        val(model, criterion, valloader, epoch, valdata)
+        train(model, optimizer, criterions, trainloader, epoch, scheduler, traindata)
+        val(model, criterions, valloader, epoch, valdata)
 
         # save the model every 5 epochs
         if (epoch + 1) % 5 == 0 or epoch == args.epochs - 1:
@@ -269,22 +271,22 @@ def main(args):
         this_mIoU2 = np.mean(totalclasswise_pixel_acc_test[1] / (totalclasswise_gtpixels_test[1] + totalclasswise_predpixels_test[1] - totalclasswise_pixel_acc_test[1]), axis=1)[0]
         print('Val: mIoU_sbd = {}, mIoU_lip = {}'.format(this_mIoU1, this_mIoU2))
 
-def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
+def train(model, optimizer, criterions, trainloader, epoch, scheduler, data):
     global l_avg, totalclasswise_pixel_acc, totalclasswise_gtpixels, totalclasswise_predpixels
     global steps
 
     model.train()
 
     for i, (images, sbd_labels, lip_labels) in enumerate(trainloader):
-        sbd_valid_pixel = float( (sbd_labels.data != criterion.ignore_index).long().sum() )
-        lip_valid_pixel = float( (lip_labels.data != criterion.ignore_index).long().sum() )
+        sbd_valid_pixel = float( (sbd_labels.data != criterion[0].ignore_index).long().sum() )
+        lip_valid_pixel = float( (lip_labels.data != criterion[1].ignore_index).long().sum() )
 
         images = images.to(device)
         sbd_labels = sbd_labels.to(device)
         lip_labels = lip_labels.to(device)
         
         sbd_outputs, lip_outputs = model(images, task=2)
-        sbd_loss = criterion(sbd_outputs, sbd_labels)
+        sbd_loss = criterion[0](sbd_outputs, sbd_labels)
         
         classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([sbd_outputs], sbd_labels, data.n_classes[0])
         classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc])
@@ -295,11 +297,11 @@ def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
         totalclasswise_gtpixels[0] += classwise_gtpixels.sum(0).data.numpy()
         totalclasswise_predpixels[0] += classwise_predpixels.sum(0).data.numpy()
 
-        total_loss = sbd_loss.sum()
-        total_loss = total_loss / float(sbd_valid_pixel)
-        total_loss.backward()
+        sbd_total_loss = sbd_loss.sum()
+        sbd_total_loss = sbd_total_loss / float(sbd_valid_pixel)
+        sbd_total_loss.backward()
 
-        lip_loss = criterion(lip_outputs, lip_labels)
+        lip_loss = criterion[1](lip_outputs, lip_labels)
 
         classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([lip_outputs], lip_labels, data.n_classes[1])
         classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc])
@@ -310,9 +312,9 @@ def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
         totalclasswise_gtpixels[1] += classwise_gtpixels.sum(0).data.numpy()
         totalclasswise_predpixels[1] += classwise_predpixels.sum(0).data.numpy()
 
-        total_loss = lip_loss.sum()
-        total_loss = total_loss / float(lip_valid_pixel)
-        total_loss.backward()
+        lip_total_loss = lip_loss.sum()
+        lip_total_loss = lip_total_loss / float(lip_valid_pixel)
+        lip_total_loss.backward()
 
         optimizer.step()
 
@@ -333,7 +335,7 @@ def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
         #     pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy()), [2, 0, 1]),
         #                 open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
 
-def val(model, criterion, valloader, epoch, data):
+def val(model, criterions, valloader, epoch, data):
     global l_avg_test, totalclasswise_pixel_acc_test, totalclasswise_gtpixels_test, totalclasswise_predpixels_test
     global steps_test
 
@@ -349,8 +351,8 @@ def val(model, criterion, valloader, epoch, data):
 
         with torch.no_grad():
             sbd_outputs, lip_outputs = model(images, task=2)
-            sbd_loss = criterion(sbd_outputs, sbd_labels)
-            lip_loss = criterion(lip_outputs, lip_labels)
+            sbd_loss = criterions[0](sbd_outputs, sbd_labels)
+            lip_loss = criterions[1](lip_outputs, lip_labels)
 
             classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([sbd_outputs], sbd_labels, data.n_classes[0])
             classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc])
