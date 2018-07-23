@@ -222,7 +222,7 @@ def main(args):
         totalclasswise_gtpixels_test[1] = totalclasswise_gtpixels_test[1].reshape((-1, n_classes[1]))
         totalclasswise_predpixels_test[1] = totalclasswise_predpixels_test[1].reshape((-1, n_classes[1]))
 
-        if isinstance(avg_pixel_acc, np.ndarray):
+        if isinstance(avg_pixel_acc, list):
             avg_pixel_acc[0] = np.vstack((avg_pixel_acc[0], np.sum(totalclasswise_pixel_acc[0], axis=1) / np.sum(totalclasswise_gtpixels[0], axis=1)))
             mean_class_acc[0] = np.vstack((mean_class_acc[0], np.mean(totalclasswise_pixel_acc[0] / totalclasswise_gtpixels[0], axis=1)))
             mIoU[0] = np.vstack((mIoU[0], np.mean(totalclasswise_pixel_acc[0] / (totalclasswise_gtpixels[0] + totalclasswise_predpixels[0] - totalclasswise_pixel_acc[0]), axis=1)))
