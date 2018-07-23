@@ -361,18 +361,18 @@ def val(model, criterions, valloader, epoch, data):
             classwise_gtpixels = torch.FloatTensor([classwise_gtpixels])
             classwise_predpixels = torch.FloatTensor([classwise_predpixels])
 
-            totalclasswise_pixel_acc_test += classwise_pixel_acc.sum(0).data.numpy()
-            totalclasswise_gtpixels_test += classwise_gtpixels.sum(0).data.numpy()
-            totalclasswise_predpixels_test += classwise_predpixels.sum(0).data.numpy()
+            totalclasswise_pixel_acc_test[0] += classwise_pixel_acc.sum(0).data.numpy()
+            totalclasswise_gtpixels_test[0] += classwise_gtpixels.sum(0).data.numpy()
+            totalclasswise_predpixels_test[0] += classwise_predpixels.sum(0).data.numpy()
 
             classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([lip_outputs], lip_labels, data.n_classes[1])
             classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc])
             classwise_gtpixels = torch.FloatTensor([classwise_gtpixels])
             classwise_predpixels = torch.FloatTensor([classwise_predpixels])
 
-            totalclasswise_pixel_acc_test += classwise_pixel_acc.sum(0).data.numpy()
-            totalclasswise_gtpixels_test += classwise_gtpixels.sum(0).data.numpy()
-            totalclasswise_predpixels_test += classwise_predpixels.sum(0).data.numpy()
+            totalclasswise_pixel_acc_test[1] += classwise_pixel_acc.sum(0).data.numpy()
+            totalclasswise_gtpixels_test[1] += classwise_gtpixels.sum(0).data.numpy()
+            totalclasswise_predpixels_test[1] += classwise_predpixels.sum(0).data.numpy()
 
             l_avg_test[0] += sbd_loss.sum().data.cpu().numpy()
             steps_test[0] += sbd_valid_pixel
