@@ -235,7 +235,7 @@ def main(args):
             mIoU_test[0] = np.vstack((mIoU_test[0], np.mean(totalclasswise_pixel_acc_test[0] / (totalclasswise_gtpixels_test[0] + totalclasswise_predpixels_test[0] - totalclasswise_pixel_acc_test[0]), axis=1)))
             avg_pixel_acc_test[1] = np.vstack((avg_pixel_acc_test[1], np.sum(totalclasswise_pixel_acc_test[1],axis=1) / np.sum(totalclasswise_gtpixels_test[1], axis=1)))
             mean_class_acc_test[1] = np.vstack((mean_class_acc_test[1], np.mean(totalclasswise_pixel_acc_test[1] / totalclasswise_gtpixels_test[1], axis=1)))
-            mIoU_test[1] = np.vstack((mIoU_test[1], np.mean(totalclasswise_pixel_acc_test[1] / (totalclasswise_gtpixels_test[1] + totalclasswise_predpixels_test[1] - totalclasswise_pixel_acc_test[0]), axis=1)))
+            mIoU_test[1] = np.vstack((mIoU_test[1], np.mean(totalclasswise_pixel_acc_test[1] / (totalclasswise_gtpixels_test[1] + totalclasswise_predpixels_test[1] - totalclasswise_pixel_acc_test[1]), axis=1)))
         else:
             avg_pixel_acc = []
             mean_class_acc = []
