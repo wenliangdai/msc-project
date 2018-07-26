@@ -48,5 +48,6 @@ def _get_model_instance(name):
     return {
         'sunet64': Dilated_sunet64,
         'sunet64_multi': Dilated_sunet64_multi,
-        'fcn32vgg': FCN32VGG
+        'fcn32vgg': FCN32VGG,
+        'fcn32vgg_multi': FCN32VGG_MULTI
     }[name]
