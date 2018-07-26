@@ -1,3 +1,5 @@
+MULTI.*
+MULTI_PRETRAINED.*
 *.tar
 *.pth
 results_*/

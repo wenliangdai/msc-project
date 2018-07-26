@@ -54,21 +54,13 @@ def main(args):
     target_transform = extended_transforms.MaskToTensor()
 
     traindata = data_loader('train', n_classes=args.n_classes, transform=input_transform, target_transform=target_transform, do_transform=True)
-    trainloader = data.DataLoader(traindata, batch_size=args.batch_size, num_workers=1, shuffle=True)
+    trainloader = data.DataLoader(traindata, batch_size=args.batch_size, num_workers=2, shuffle=True)
     valdata = data_loader('val', n_classes=args.n_classes, transform=input_transform, target_transform=target_transform)
-    valloader = data.DataLoader(valdata, batch_size=args.batch_size, num_workers=1, shuffle=False)
+    valloader = data.DataLoader(valdata, batch_size=args.batch_size, num_workers=2, shuffle=False)
 
     n_classes = traindata.n_classes
-    n_trainsamples_total = len(traindata)
-    n_trainsamples_lip = n_trainsamples_total / 2
-    n_trainsamples_sbd = n_trainsamples_total / 2
-    n_iters_per_epoch_common = np.ceil(n_trainsamples_total / float(20))
-    n_iters_per_epoch_lip = np.ceil(n_trainsamples_lip / float(10))
-    n_iters_per_epoch_sbd = np.ceil(n_trainsamples_sbd / float(10))
-
-    print('# total training samples = {}'.format(n_trainsamples_total))
-    print('# sbd training samples = {}'.format(n_trainsamples_sbd))
-    print('# lip training samples = {}'.format(n_trainsamples_lip))
+    n_trainsamples = len(traindata)
+    n_iters_per_epoch = np.ceil(n_trainsamples / float(args.batch_size * args.iter_size))
 
     # Setup Model
     model = get_model(
@@ -81,6 +73,7 @@ def main(args):
         dprob=args.dprob
     ).to(device)
 
+    epochs_done=0
     X=[]
     Y1=[]
     Y1_test=[]
@@ -92,74 +85,88 @@ def main(args):
     avg_pixel_acc_test = 0
     mean_class_acc_test = 0
     mIoU_test = 0
+    best_mIoU = 0
+    best_epoch = 0
+
+    if args.model_path:
+        model_name = args.model_path.split('.')
+        checkpoint_name = model_name[0] + '_optimizer.pkl'
+        checkpoint = torch.load(os.path.join(ROOT, RESULT, checkpoint_name))
+        optm = checkpoint['optimizer']
+        model.load_state_dict(checkpoint['state_dict'])
+        split_str = model_name[0].split('_')
+        epochs_done = int(split_str[-1])
+        saved_loss = pickle.load( open(os.path.join(ROOT, RESULT, "saved_loss.p"), "rb") )
+        saved_accuracy = pickle.load( open(os.path.join(ROOT, RESULT, "saved_accuracy.p"), "rb") )
+        X=saved_loss["X"][:epochs_done]
+        Y=saved_loss["Y"][:epochs_done]
+        Y_test=saved_loss["Y_test"][:epochs_done]
+        avg_pixel_acc = saved_accuracy["P"][:epochs_done,:]
+        mean_class_acc = saved_accuracy["M"][:epochs_done,:]
+        mIoU = saved_accuracy["I"][:epochs_done,:]
+        avg_pixel_acc_test = saved_accuracy["P_test"][:epochs_done,:]
+        mean_class_acc_test = saved_accuracy["M_test"][:epochs_done,:]
+        mIoU_test = saved_accuracy["I_test"][:epochs_done,:]
+    
+    if args.best_model_path:
+        best_model_name = args.best_model_path.split('_')
+        best_mIoU = float(best_model_name[-2])
+        best_epoch = int(best_model_name[-3])
 
     # Learning rates: For new layers (such as final layer), we set lr to be 10x the learning rate of layers already trained
-    common_bias = filter(lambda x: ('bias' in x[0]) and ('final' not in x[0]), model.named_parameters())
-    common_bias = list(map(lambda x: x[1], common_bias))
-    common_nonbias = filter(lambda x: ('bias' not in x[0]) and ('final' not in x[0]), model.named_parameters())
-    common_nonbias = list(map(lambda x: x[1], common_nonbias))
+    bias_10x_params = filter(lambda x: ('bias' in x[0]) and ('final' in x[0]) and ('conv' in x[0]),
+                         model.named_parameters())
+    bias_10x_params = list(map(lambda x: x[1], bias_10x_params))
 
-    final1_bias = filter(lambda x: ('bias' in x[0]) and ('final1' in x[0]) and ('conv' in x[0]), model.named_parameters())
-    final1_bias = list(map(lambda x: x[1], final1_bias))
-    final1_nonbias = filter(lambda x: (('bias' not in x[0]) or ('bn' in x[0])) and ('final1' in x[0]), model.named_parameters())
-    final1_nonbias = list(map(lambda x: x[1], final1_nonbias))
-    
-    final2_bias = filter(lambda x: ('bias' in x[0]) and ('final2' in x[0]) and ('conv' in x[0]), model.named_parameters())
-    final2_bias = list(map(lambda x: x[1], final2_bias))
-    final2_nonbias = filter(lambda x: (('bias' not in x[0]) or ('bn' in x[0])) and ('final2' in x[0]), model.named_parameters())
-    final2_nonbias = list(map(lambda x: x[1], final2_nonbias))
+    bias_params = filter(lambda x: ('bias' in x[0]) and ('final' not in x[0]),
+                         model.named_parameters())
+    bias_params = list(map(lambda x: x[1], bias_params))
 
-    optimizer_common = torch.optim.SGD(
-        [{'params': common_bias, 'lr': args.lr},
-         {'params': common_nonbias, 'lr': args.lr}],
-        lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay,
-        nesterov=(args.optim == 'Nesterov'))
-    optimizer_sbd = torch.optim.SGD(
-        [{'params': final1_bias, 'lr': 20 * args.lr if args.pretrained else args.lr},
-         {'params': final1_nonbias, 'lr': 10 * args.lr if args.pretrained else args.lr}],
-        lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay,
-        nesterov=(args.optim == 'Nesterov'))
-    optimizer_lip = torch.optim.SGD(
-        [{'params': final2_bias, 'lr': 20 * args.lr if args.pretrained else args.lr},
-         {'params': final2_nonbias, 'lr': 10 * args.lr if args.pretrained else args.lr}],
-        lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay,
-        nesterov=(args.optim == 'Nesterov'))
+    nonbias_10x_params = filter(lambda x: (('bias' not in x[0]) or ('bn' in x[0])) and ('final' in x[0]),
+                         model.named_parameters())
+    nonbias_10x_params = list(map(lambda x: x[1], nonbias_10x_params))
 
-    optimizers = [optimizer_common, optimizer_sbd, optimizer_lip]
+    nonbias_params = filter(lambda x: ('bias' not in x[0]) and ('final' not in x[0]),
+                            model.named_parameters())
+    nonbias_params = list(map(lambda x: x[1], nonbias_params))
+
+    optimizer = torch.optim.SGD([{'params': bias_params, 'lr': args.lr},
+                                 {'params': bias_10x_params, 'lr': 20 * args.lr if args.pretrained else args.lr},
+                                 {'params': nonbias_10x_params, 'lr': 10 * args.lr if args.pretrained else args.lr},
+                                 {'params': nonbias_params, 'lr': args.lr},],
+                                lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay,
+                                nesterov=(args.optim == 'Nesterov'))
+    num_param_groups = 4
+
+    # optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 
     # Setting up scheduler
-    total_iters_common = (args.epochs * n_iters_per_epoch_common)
-    total_iters_sbd = (args.epochs * n_iters_per_epoch_sbd)
-    total_iters_lip = (args.epochs * n_iters_per_epoch_lip)
-    lambda_common = lambda step: 0.5 + 0.5 * math.cos(np.pi * step / total_iters_common)
-    lambda_sbd = lambda step: 0.5 + 0.5 * math.cos(np.pi * step / total_iters_sbd)
-    lambda_lip = lambda step: 0.5 + 0.5 * math.cos(np.pi * step / total_iters_lip)
-    scheduler_common = lr_scheduler.LambdaLR(optimizer_common, lr_lambda=[lambda_common]*2)
-    scheduler_sbd = lr_scheduler.LambdaLR(optimizer_sbd, lr_lambda=[lambda_sbd]*2)
-    scheduler_lip = lr_scheduler.LambdaLR(optimizer_lip, lr_lambda=[lambda_lip]*2)
-
-    schedulers = [scheduler_common, scheduler_sbd, scheduler_lip]
+    if args.model_path and args.restore:
+        # Here we restore all states of optimizer
+        optimizer.load_state_dict(optm)
+        total_iters = n_iters_per_epoch * args.epochs
+        lambda1 = lambda step: 0.5 + 0.5 * math.cos(np.pi * step / total_iters)
+        scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=[lambda1]*num_param_groups, last_epoch=epochs_done*n_iters_per_epoch)
+        # scheduler = lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1, last_epoch=epochs_done)
+    else:
+        # scheduler = lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
+        # Here we simply restart the training
+        # if args.T0:
+        #     total_iters = args.T0 * n_iters_per_epoch
+        # else:
+        total_iters = ((args.epochs - epochs_done) * n_iters_per_epoch)
+        lambda1 = lambda step: 0.5 + 0.5 * math.cos(np.pi * step / total_iters)
+        scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=[lambda1]*num_param_groups)
 
     global l_avg, totalclasswise_pixel_acc, totalclasswise_gtpixels, totalclasswise_predpixels
     global l_avg_test, totalclasswise_pixel_acc_test, totalclasswise_gtpixels_test, totalclasswise_predpixels_test
     global steps, steps_test
-    global bug_counter
-
-    bug_counter = 0
-
-    scheduler_common.step()
-    scheduler_sbd.step()
-    scheduler_lip.step()
-
-    counter_sizes = [20, 10, 10]
-    global counters
-    counters = [0, 0, 0]
 
     criterion_sbd = nn.CrossEntropyLoss(size_average=False, ignore_index=traindata.ignore_index)
     criterion_lip = nn.CrossEntropyLoss(size_average=False, ignore_index=traindata.ignore_index)
     criterions = [criterion_sbd, criterion_lip]
 
-    for epoch in range(args.epochs):
+    for epoch in range(epochs_done, args.epochs):
         print('='*10, 'Epoch %d' % (epoch + 1), '='*10)
         l_avg = [0, 0]
         totalclasswise_pixel_acc = [0, 0]
@@ -172,23 +179,18 @@ def main(args):
         steps = [0, 0]
         steps_test = [0, 0]
         
-        train(model, optimizers, criterions, trainloader, epoch, schedulers, traindata, counter_sizes)
+        # scheduler.step()
+        train(model, optimizer, criterions, trainloader, epoch, scheduler, traindata)
         val(model, criterions, valloader, epoch, valdata)
 
         # save the model every 5 epochs
         if (epoch + 1) % 5 == 0 or epoch == args.epochs - 1:
             if (epoch + 1) > 5:
                 os.remove(os.path.join(ROOT, RESULT, "{}_{}_{}.pkl".format(args.arch, args.dataset, epoch - 4)))
-                os.remove(os.path.join(ROOT, RESULT, "{}_{}_{}_optimizer0.pkl".format(args.arch, args.dataset, epoch - 4)))
-                os.remove(os.path.join(ROOT, RESULT, "{}_{}_{}_optimizer1.pkl".format(args.arch, args.dataset, epoch - 4)))
-                os.remove(os.path.join(ROOT, RESULT, "{}_{}_{}_optimizer2.pkl".format(args.arch, args.dataset, epoch - 4)))
+                os.remove(os.path.join(ROOT, RESULT, "{}_{}_{}_optimizer.pkl".format(args.arch, args.dataset, epoch - 4)))
             torch.save(model, os.path.join(ROOT, RESULT, "{}_{}_{}.pkl".format(args.arch, args.dataset, epoch + 1)))
-            torch.save({'state_dict': model.state_dict(), 'optimizer': optimizers[0].state_dict()},
-                       os.path.join(ROOT, RESULT, "{}_{}_{}_optimizer0.pkl".format(args.arch, args.dataset, epoch + 1)))
-            torch.save({'state_dict': model.state_dict(), 'optimizer': optimizers[1].state_dict()},
-                       os.path.join(ROOT, RESULT, "{}_{}_{}_optimizer1.pkl".format(args.arch, args.dataset, epoch + 1)))
-            torch.save({'state_dict': model.state_dict(), 'optimizer': optimizers[2].state_dict()},
-                       os.path.join(ROOT, RESULT, "{}_{}_{}_optimizer2.pkl".format(args.arch, args.dataset, epoch + 1)))
+            torch.save({'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict()},
+                       os.path.join(ROOT, RESULT, "{}_{}_{}_optimizer.pkl".format(args.arch, args.dataset, epoch + 1)))
         
         # remove old loss & accuracy files
         if os.path.isfile(os.path.join(ROOT, RESULT, "saved_loss.p")):
@@ -270,112 +272,69 @@ def main(args):
         this_mIoU1 = np.mean(totalclasswise_pixel_acc_test[0] / (totalclasswise_gtpixels_test[0] + totalclasswise_predpixels_test[0] - totalclasswise_pixel_acc_test[0]), axis=1)[0]
         this_mIoU2 = np.mean(totalclasswise_pixel_acc_test[1] / (totalclasswise_gtpixels_test[1] + totalclasswise_predpixels_test[1] - totalclasswise_pixel_acc_test[1]), axis=1)[0]
         print('Val: mIoU_sbd = {}, mIoU_lip = {}'.format(this_mIoU1, this_mIoU2))
-        # print('bug_counter = {}'.format(bug_counter))
 
-# Incase one want to freeze BN params
-def set_bn_eval(m):
-    classname = m.__class__.__name__
-    if classname.find('BatchNorm') != -1:
-        m.eval()
-        m.weight.requires_grad = False
-        m.bias.requires_grad = False
-
-def train(model, optimizers, criterions, trainloader, epoch, schedulers, data, counter_sizes):
+def train(model, optimizer, criterions, trainloader, epoch, scheduler, data):
     global l_avg, totalclasswise_pixel_acc, totalclasswise_gtpixels, totalclasswise_predpixels
     global steps
-    global counters, bug_counter
 
     model.train()
-    
-    if args.freeze:
-        model.apply(set_bn_eval)
 
-    for i, (images, labels, task) in enumerate(trainloader):
-        # total_valid_pixel = float(torch.sum( (labels.data != criterion.ignore_index).long() ))
-
-        # if total_valid_pixel == 0:
-        #     print('epoch {}, task {}: total_valid_pixel is {}'.format(epoch, task, total_valid_pixel))
-        #     bug_counter += 1
-        #     continue
-        
-        sbd_index = task == 0
-        lip_index = task == 1
-
-        sbd_images = images[sbd_index]
-        lip_images = images[lip_index]
-        sbd_labels = labels[sbd_index]
-        lip_labels = labels[lip_index]
-
-        num_sbd = sbd_images.size(0)
-        num_lip = lip_images.size(0)
-
+    for i, (images, sbd_labels, lip_labels) in enumerate(trainloader):
         sbd_valid_pixel = float( (sbd_labels.data != criterions[0].ignore_index).long().sum() )
         lip_valid_pixel = float( (lip_labels.data != criterions[1].ignore_index).long().sum() )
 
-        sbd_images = sbd_images.to(device)
-        lip_images = lip_images.to(device)
+        images = images.to(device)
         sbd_labels = sbd_labels.to(device)
         lip_labels = lip_labels.to(device)
-
-        # Increment common CNN's counter for each image
-        counters[0] += images.size(0)
-        counters[1] += num_sbd
-        counters[2] += num_lip
         
-        if num_sbd > 0:
-            sbd_outputs = model(sbd_images, 0)
-            loss0 = criterions[0](sbd_outputs, sbd_labels)
+        sbd_outputs, lip_outputs = model(images, task=2)
+        sbd_loss = criterions[0](sbd_outputs, sbd_labels)
+        
+        classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([sbd_outputs], sbd_labels, data.n_classes[0])
+        classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc])
+        classwise_gtpixels = torch.FloatTensor([classwise_gtpixels])
+        classwise_predpixels = torch.FloatTensor([classwise_predpixels])
 
-            total_loss0 = loss0.sum()
-            total_loss0 = total_loss0 / sbd_valid_pixel
-            total_loss0 = total_loss0 / float(args.iter_size)
-            total_loss0.backward()
+        totalclasswise_pixel_acc[0] += classwise_pixel_acc.sum(0).data.numpy()
+        totalclasswise_gtpixels[0] += classwise_gtpixels.sum(0).data.numpy()
+        totalclasswise_predpixels[0] += classwise_predpixels.sum(0).data.numpy()
 
-            classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([sbd_outputs], sbd_labels, data.n_classes[0])
-            classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc])
-            classwise_gtpixels = torch.FloatTensor([classwise_gtpixels])
-            classwise_predpixels = torch.FloatTensor([classwise_predpixels])
+        sbd_total_loss = sbd_loss.sum()
+        sbd_total_loss = sbd_total_loss / float(sbd_valid_pixel)
+        sbd_total_loss.backward(retain_graph=True)
 
-            l_avg[0] += loss0.sum().data.cpu().numpy()
-            steps[0] += sbd_valid_pixel
-            totalclasswise_pixel_acc[0] += classwise_pixel_acc.sum(0).data.numpy()
-            totalclasswise_gtpixels[0] += classwise_gtpixels.sum(0).data.numpy()
-            totalclasswise_predpixels[0] += classwise_predpixels.sum(0).data.numpy()
-        if num_lip > 0:
-            lip_outputs = model(lip_images, 1)
-            loss1 = criterions[1](lip_outputs, lip_labels)
+        lip_loss = criterions[1](lip_outputs, lip_labels)
 
-            total_loss1 = loss1.sum()
-            total_loss1 = total_loss1 / lip_valid_pixel
-            total_loss1 = total_loss1 / float(args.iter_size)
-            total_loss1.backward()
+        classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([lip_outputs], lip_labels, data.n_classes[1])
+        classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc])
+        classwise_gtpixels = torch.FloatTensor([classwise_gtpixels])
+        classwise_predpixels = torch.FloatTensor([classwise_predpixels])
 
-            classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([lip_outputs], lip_labels, data.n_classes[1])
-            classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc])
-            classwise_gtpixels = torch.FloatTensor([classwise_gtpixels])
-            classwise_predpixels = torch.FloatTensor([classwise_predpixels])
+        totalclasswise_pixel_acc[1] += classwise_pixel_acc.sum(0).data.numpy()
+        totalclasswise_gtpixels[1] += classwise_gtpixels.sum(0).data.numpy()
+        totalclasswise_predpixels[1] += classwise_predpixels.sum(0).data.numpy()
 
-            l_avg[1] += loss1.sum().data.cpu().numpy()
-            steps[1] += lip_valid_pixel
-            totalclasswise_pixel_acc[1] += classwise_pixel_acc.sum(0).data.numpy()
-            totalclasswise_gtpixels[1] += classwise_gtpixels.sum(0).data.numpy()
-            totalclasswise_predpixels[1] += classwise_predpixels.sum(0).data.numpy()
+        lip_total_loss = lip_loss.sum()
+        lip_total_loss = lip_total_loss / float(lip_valid_pixel)
+        lip_total_loss.backward()
 
-        for j in range(3):
-            if counters[j] >= counter_sizes[j]:
-                optimizers[j].step()
-                optimizers[j].zero_grad()
-                schedulers[j].step()
-                counters[j] -= counter_sizes[j]
+        l_avg[0] += sbd_loss.sum().data.cpu().numpy()
+        steps[0] += sbd_valid_pixel
+        l_avg[1] += lip_loss.sum().data.cpu().numpy()
+        steps[1] += lip_valid_pixel
+
+        optimizer.step()
+        optimizer.zero_grad()
+        scheduler.step()
 
         # if (i + 1) % args.log_size == 0:
         #     pickle.dump(images[0].cpu().numpy(),
         #                 open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_input.p"), "wb"))
 
-        #     pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0), task=task), [2, 0, 1]),
+        #     pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0)), [2, 0, 1]),
         #                 open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_output.p"), "wb"))
 
-        #     pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy(), task=task), [2, 0, 1]),
+        #     pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy()), [2, 0, 1]),
         #                 open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
 
 def val(model, criterions, valloader, epoch, data):
@@ -384,66 +343,53 @@ def val(model, criterions, valloader, epoch, data):
 
     model.eval()
 
-    for i, (images, labels, task) in enumerate(valloader):
-        sbd_index = task == 0
-        lip_index = task == 1
-
-        sbd_images = images[sbd_index]
-        lip_images = images[lip_index]
-        sbd_labels = labels[sbd_index]
-        lip_labels = labels[lip_index]
-
-        num_sbd = sbd_images.size(0)
-        num_lip = lip_images.size(0)
-
+    for i, (images, sbd_labels, lip_labels) in enumerate(valloader):
         sbd_valid_pixel = float( (sbd_labels.data != criterions[0].ignore_index).long().sum() )
         lip_valid_pixel = float( (lip_labels.data != criterions[1].ignore_index).long().sum() )
 
-        sbd_images = sbd_images.to(device)
-        lip_images = lip_images.to(device)
+        images = images.to(device)
         sbd_labels = sbd_labels.to(device)
         lip_labels = lip_labels.to(device)
 
         with torch.no_grad():
-            if num_sbd > 0:
-                sbd_outputs = model(sbd_images, 0)
-                loss0 = criterions[0](sbd_outputs, sbd_labels)
+            sbd_outputs, lip_outputs = model(images, task=2)
+            sbd_loss = criterions[0](sbd_outputs, sbd_labels)
+            lip_loss = criterions[1](lip_outputs, lip_labels)
 
-                classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([sbd_outputs], sbd_labels, data.n_classes[0])
-                classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc])
-                classwise_gtpixels = torch.FloatTensor([classwise_gtpixels])
-                classwise_predpixels = torch.FloatTensor([classwise_predpixels])
+            classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([sbd_outputs], sbd_labels, data.n_classes[0])
+            classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc])
+            classwise_gtpixels = torch.FloatTensor([classwise_gtpixels])
+            classwise_predpixels = torch.FloatTensor([classwise_predpixels])
 
-                l_avg_test[0] += loss0.sum().data.cpu().numpy()
-                steps_test[0] += sbd_valid_pixel
-                totalclasswise_pixel_acc_test[0] += classwise_pixel_acc.sum(0).data.numpy()
-                totalclasswise_gtpixels_test[0] += classwise_gtpixels.sum(0).data.numpy()
-                totalclasswise_predpixels_test[0] += classwise_predpixels.sum(0).data.numpy()
-            if num_lip > 0:
-                lip_outputs = model(lip_images, 1)
-                loss1 = criterions[1](lip_outputs, lip_labels)
+            totalclasswise_pixel_acc_test[0] += classwise_pixel_acc.sum(0).data.numpy()
+            totalclasswise_gtpixels_test[0] += classwise_gtpixels.sum(0).data.numpy()
+            totalclasswise_predpixels_test[0] += classwise_predpixels.sum(0).data.numpy()
 
-                classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([lip_outputs], lip_labels, data.n_classes[1])
-                classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc])
-                classwise_gtpixels = torch.FloatTensor([classwise_gtpixels])
-                classwise_predpixels = torch.FloatTensor([classwise_predpixels])
-                
-                l_avg_test[1] += loss1.sum().data.cpu().numpy()
-                steps_test[1] += lip_valid_pixel
-                totalclasswise_pixel_acc_test[1] += classwise_pixel_acc.sum(0).data.numpy()
-                totalclasswise_gtpixels_test[1] += classwise_gtpixels.sum(0).data.numpy()
-                totalclasswise_predpixels_test[1] += classwise_predpixels.sum(0).data.numpy()
+            classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([lip_outputs], lip_labels, data.n_classes[1])
+            classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc])
+            classwise_gtpixels = torch.FloatTensor([classwise_gtpixels])
+            classwise_predpixels = torch.FloatTensor([classwise_predpixels])
 
-            # if (i + 1) % 1000 == 0:
+            totalclasswise_pixel_acc_test[1] += classwise_pixel_acc.sum(0).data.numpy()
+            totalclasswise_gtpixels_test[1] += classwise_gtpixels.sum(0).data.numpy()
+            totalclasswise_predpixels_test[1] += classwise_predpixels.sum(0).data.numpy()
+
+            l_avg_test[0] += sbd_loss.sum().data.cpu().numpy()
+            steps_test[0] += sbd_valid_pixel
+            l_avg_test[1] += lip_loss.sum().data.cpu().numpy()
+            steps_test[1] += lip_valid_pixel
+
+            # if (i + 1) % 800 == 0:
             #     pickle.dump(images[0].cpu().numpy(),
             #                 open(os.path.join(ROOT, RESULT, "saved_val_images/" + str(epoch) + "_" + str(i) + "_input.p"), "wb"))
 
-            #     pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0), task=task), [2, 0, 1]),
+            #     pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0)), [2, 0, 1]),
             #                 open(os.path.join(ROOT, RESULT, "saved_val_images/" + str(epoch) + "_" + str(i) + "_output.p"), "wb"))
 
-            #     pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy(), task=task), [2, 0, 1]),
+            #     pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy()), [2, 0, 1]),
             #                 open(os.path.join(ROOT, RESULT, "saved_val_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
 
+    
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Hyperparams')
@@ -451,7 +397,7 @@ if __name__ == '__main__':
                         help='Architecture to use [\'sunet64, sunet128, sunet7128 etc\']')
     parser.add_argument('--model_path', help='Path to the saved model', type=str)
     parser.add_argument('--best_model_path', help='Path to the saved best model', type=str)
-    parser.add_argument('--dataset', nargs='?', type=str, default='sbd_lip',
+    parser.add_argument('--dataset', nargs='?', type=str, default='human',
                         help='Dataset to use [\'sbd, coco, cityscapes etc\']')
     parser.add_argument('--img_rows', nargs='?', type=int, default=512,
                         help='Height of the input image')
@@ -494,7 +440,7 @@ if __name__ == '__main__':
 
     global args
     args = parser.parse_args()
-
+    
     RESULT = '{}_{}_{}'.format(RESULT, args.arch, args.dataset)
     if args.pretrained:
         RESULT = RESULT + '_pretrained'

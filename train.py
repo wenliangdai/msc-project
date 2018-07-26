@@ -22,7 +22,7 @@ from utils import dotdict, float2str
 
 # paths
 ROOT = '/home/wenlidai/sunets-reproduce/'
-RESULT = 'results_'
+RESULT = 'results'
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -54,9 +54,9 @@ def main(args):
     target_transform = extended_transforms.MaskToTensor()
 
     traindata = data_loader('train', n_classes=args.n_classes, transform=input_transform, target_transform=target_transform, do_transform=True)
-    trainloader = data.DataLoader(traindata, batch_size=args.batch_size, num_workers=2, shuffle=True)
+    trainloader = data.DataLoader(traindata, batch_size=args.batch_size, num_workers=1, shuffle=True)
     valdata = data_loader('val', n_classes=args.n_classes, transform=input_transform, target_transform=target_transform)
-    valloader = data.DataLoader(valdata, batch_size=args.batch_size, num_workers=2, shuffle=False)
+    valloader = data.DataLoader(valdata, batch_size=args.batch_size, num_workers=1, shuffle=False)
 
     n_classes = traindata.n_classes
     n_trainsamples = len(traindata)
@@ -69,7 +69,8 @@ def main(args):
         ignore_index=traindata.ignore_index, 
         output_stride=args.output_stride,
         pretrained=args.pretrained,
-        momentum_bn=args.momentum_bn
+        momentum_bn=args.momentum_bn,
+        dprob=args.dprob
     ).to(device)
 
     epochs_done=0
@@ -266,18 +267,11 @@ def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
     for i, (images, labels) in enumerate(trainloader):
         images = images.to(device)
         labels = labels.to(device)
-        # assert images.size()[2:] == labels.size()[1:]
-        # print('Inputs size =', images.size())
-        # print('Labels size =', labels.size())
 
         if i % args.iter_size == 0:
             optimizer.zero_grad()
         
-        outputs = model(images, labels)
-        # assert outputs.size()[2:] == labels.size()[1:]
-        # assert outputs.size(1) == data.n_classes
-        # print('Outputs size =', outputs.size())
-
+        outputs = model(images)
         loss = criterion(outputs, labels)
         
         total_valid_pixel = torch.sum(labels.data != criterion.ignore_index)
@@ -331,9 +325,9 @@ def val(model, criterion, valloader, epoch, data):
         labels = labels.to(device)
 
         with torch.no_grad():
-            outputs = model(images, labels)
-            
+            outputs = model(images)
             loss = criterion(outputs, labels)
+
             total_valid_pixel = torch.sum(labels.data != criterion.ignore_index)
             classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([outputs], labels, data.n_classes)
 
@@ -364,7 +358,7 @@ def val(model, criterion, valloader, epoch, data):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Hyperparams')
-    parser.add_argument('--arch', nargs='?', type=str, default='sunet7128',
+    parser.add_argument('--arch', nargs='?', type=str, default='sunet64',
                         help='Architecture to use [\'sunet64, sunet128, sunet7128 etc\']')
     parser.add_argument('--model_path', help='Path to the saved model', type=str)
     parser.add_argument('--best_model_path', help='Path to the saved best model', type=str)
@@ -386,6 +380,8 @@ if __name__ == '__main__':
                         help='number of batches per weight updates')
     parser.add_argument('--log_size', type=int, default=400,
                         help='iteration period of logging segmented images')
+    parser.add_argument('--dprob', nargs='?', type=float, default=1e-7,
+                        help='Dropout probability')
     parser.add_argument('--momentum', nargs='?', type=float, default=0.95,
                         help='Momentum for SGD')
     parser.add_argument('--momentum_bn', nargs='?', type=float, default=0.01,
@@ -410,7 +406,7 @@ if __name__ == '__main__':
     global args
     args = parser.parse_args()
     
-    RESULT = RESULT + args.dataset
+    RESULT = '{}_{}_{}'.format(RESULT, args.arch, args.dataset)
     if args.pretrained:
         RESULT = RESULT + '_pretrained'
     

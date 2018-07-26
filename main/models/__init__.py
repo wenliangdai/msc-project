@@ -1,6 +1,7 @@
 from torch.nn import init
 
 from main.models.sunets import *
+from main.models.fcn32 import *
 
 def init_params(net):
     '''Init layer parameters.'''
@@ -16,8 +17,8 @@ def init_params(net):
             if m.bias.data is not None:
                 init.constant_(m.bias, 0)
 
-def get_model(name, n_classes, ignore_index=-1, weight=None, output_stride='16', pretrained=False, momentum_bn=0.01):
-    if name == 'sunet64':
+def get_model(name, n_classes, ignore_index=-1, weight=None, output_stride='16', pretrained=False, momentum_bn=0.01, dprob=1e-7):
+    if name in ['sunet64', 'sunet64_multi']:
         model = _get_model_instance(name)
         model = model(
             num_classes=n_classes, 
@@ -25,15 +26,28 @@ def get_model(name, n_classes, ignore_index=-1, weight=None, output_stride='16',
             weight=weight,
             output_stride=output_stride,
             pretrained=pretrained,
-            momentum_bn=momentum_bn)
+            momentum_bn=momentum_bn,
+            dprob=dprob)
         if not pretrained:
             init_params(model.features)
-        init_params(model.final)
+        if name == 'sunet64_multi':
+            init_params(model.final1)
+            init_params(model.final2)
+        else:
+            init_params(model.final)
+    elif name in ['fcn32vgg']:
+        model = _get_model_instance(name)
+        model = model(
+            num_classes=n_classes,
+            pretrained=pretrained)
     else:
         raise 'Model {} not available'.format(name)
     return model
 
 def _get_model_instance(name):
     return {
-        'sunet64': Dilated_sunet64
+        'sunet64': Dilated_sunet64,
+        'sunet64_multi': Dilated_sunet64_multi,
+        'fcn32vgg': FCN32VGG,
+        'fcn32vgg_multi': FCN32VGG_MULTI
     }[name]

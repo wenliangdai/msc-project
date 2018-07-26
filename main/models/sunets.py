@@ -10,22 +10,22 @@ from torch import nn
 output_stride_ref = {'32':3, '16':2, '8':1}
 sunet64_path = '/home/wenlidai/sunets-reproduce/main/models/pretrained/SUNets/checkpoint_64_2441_residual.pth.tar'
 
-def sunet(kind='64', num_classes=21, output_stride='32'):
+def sunet(kind='64', num_classes=21, output_stride='32', dprob=1e-7):
     if kind == '64':
-        return SUNets(in_dim=512, start_planes=64, filters_base=64, num_classes=num_classes, depth=4, output_stride=output_stride)
+        return SUNets(in_dim=512, start_planes=64, filters_base=64, num_classes=num_classes, depth=4, output_stride=output_stride, dprob=dprob)
     elif kind == '128':
-        return SUNets(in_dim=512, start_planes=64, filters_base=128, num_classes=num_classes, depth=4, output_stride=output_stride)
+        return SUNets(in_dim=512, start_planes=64, filters_base=128, num_classes=num_classes, depth=4, output_stride=output_stride, dprob=dprob)
     elif kind == '7128':
-        return SUNets(in_dim=512, start_planes=64, filters_base=128, num_classes=num_classes, depth=7, output_stride=output_stride)
+        return SUNets(in_dim=512, start_planes=64, filters_base=128, num_classes=num_classes, depth=7, output_stride=output_stride, dprob=dprob)
     else:
         raise ValueError("Argument {kind} should be '64' or '128' or '7128'.")
 
 class Dilated_sunet64(nn.Module):
-    def __init__(self, pretrained=False, num_classes=21, ignore_index=-1, weight=None, output_stride='16', momentum_bn=0.01):
+    def __init__(self, pretrained=False, num_classes=21, ignore_index=-1, weight=None, output_stride='16', momentum_bn=0.01, dprob=1e-7):
         super(Dilated_sunet64, self).__init__()
         self.num_classes = num_classes
         self.momentum_bn = momentum_bn
-        sunet64 = sunet('64', num_classes=num_classes, output_stride=output_stride)
+        sunet64 = sunet('64', num_classes=num_classes, output_stride=output_stride, dprob=dprob)
 
         if pretrained:
             # load saved state_dict
@@ -49,30 +49,97 @@ class Dilated_sunet64(nn.Module):
                 m.momentum = self.momentum_bn
 
         # De-gridding filters
-        self.final = nn.Sequential(
-            nn.Conv2d(1024, 512, kernel_size=3, padding=2, dilation=2, bias=True), # size 不变
-            nn.BatchNorm2d(512, momentum=self.momentum_bn),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(512, 512, kernel_size=3, padding=1, dilation=1, bias=True),
-            nn.BatchNorm2d(512, momentum=self.momentum_bn),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(512, num_classes, kernel_size=1)
-        )
+        self.final = nn.Sequential(OrderedDict([
+            ('conv0', nn.Conv2d(1024, 512, kernel_size=3, padding=2, dilation=2, bias=True)), # size 不变
+            ('bn1', nn.BatchNorm2d(512, momentum=self.momentum_bn)),
+            ('relu2', nn.ReLU(inplace=True)),
+            ('conv3', nn.Conv2d(512, 512, kernel_size=3, padding=1, dilation=1, bias=True)),
+            ('bn4', nn.BatchNorm2d(512, momentum=self.momentum_bn)),
+            ('relu5', nn.ReLU(inplace=True)),
+            ('conv6', nn.Conv2d(512, num_classes, kernel_size=1))
+        ]))
 
-        # self.final.add_module('conv_final', nn.Sequential(nn.Conv2d(1024, num_classes, kernel_size=1)))
-        
-        # self.mceloss = nn.CrossEntropyLoss(ignore_index=ignore_index, size_average=False, weight=weight)
-
-    def forward(self, x, labels):
+    def forward(self, x):
         x_size = x.size()
         x = self.features(x)
         x = F.relu(x, inplace=False)
         x = self.final(x)
         x = F.upsample(input=x, size=x_size[2:], mode='bilinear', align_corners=True)
-
-        # loss = self.mceloss(x, labels)
-
         return x
+
+class Dilated_sunet64_multi(nn.Module):
+    def __init__(self, pretrained=False, num_classes=[21,20], ignore_index=-1, weight=None, output_stride='16', momentum_bn=0.01, dprob=1e-7):
+        super(Dilated_sunet64_multi, self).__init__()
+        self.num_classes = num_classes
+        self.momentum_bn = momentum_bn
+        sunet64 = sunet('64', output_stride=output_stride, dprob=dprob)
+
+        if pretrained:
+            # load saved state_dict
+            pretrained_state_dict = torch.load(sunet64_path)
+            partial_state_dict = OrderedDict()
+            for i, (k, v) in enumerate(pretrained_state_dict['state_dict'].items()):
+                # print(i)
+                if i == len(pretrained_state_dict['state_dict'].items()) - 2:
+                    break
+                name = k[7:] # remove `module.`
+                partial_state_dict[name] = v
+            
+            new_state_dict = sunet64.state_dict()
+            new_state_dict.update(partial_state_dict)
+            sunet64.load_state_dict(new_state_dict)
+
+        self.features = sunet64._modules['features'] # A Sequential
+
+        for n, m in self.features.named_modules():
+            if 'bn' in n:
+                m.momentum = self.momentum_bn
+
+        # De-gridding filters
+        self.final1 = nn.Sequential(OrderedDict([
+            ('conv0', nn.Conv2d(1024, 512, kernel_size=3, padding=2, dilation=2, bias=True)), # size 不变
+            ('bn1', nn.BatchNorm2d(512, momentum=self.momentum_bn)),
+            ('relu2', nn.ReLU(inplace=True)),
+            ('conv3', nn.Conv2d(512, 512, kernel_size=3, padding=1, dilation=1, bias=True)),
+            ('bn4', nn.BatchNorm2d(512, momentum=self.momentum_bn)),
+            ('relu5', nn.ReLU(inplace=True)),
+            ('conv6', nn.Conv2d(512, num_classes[0], kernel_size=1))
+        ]))
+
+        self.final2 = nn.Sequential(OrderedDict([
+            ('conv0', nn.Conv2d(1024, 512, kernel_size=3, padding=2, dilation=2, bias=True)), # size 不变
+            ('bn1', nn.BatchNorm2d(512, momentum=self.momentum_bn)),
+            ('relu2', nn.ReLU(inplace=True)),
+            ('conv3', nn.Conv2d(512, 512, kernel_size=3, padding=1, dilation=1, bias=True)),
+            ('bn4', nn.BatchNorm2d(512, momentum=self.momentum_bn)),
+            ('relu5', nn.ReLU(inplace=True)),
+            ('conv6', nn.Conv2d(512, num_classes[1], kernel_size=1))
+        ]))
+
+    def forward(self, x, task=0):
+        x_size = x.size()
+        x = self.features(x)
+        x = F.relu(x, inplace=False)
+        
+        # SBD
+        if task == 0:
+            x = self.final1(x)
+            x = F.upsample(input=x, size=x_size[2:], mode='bilinear', align_corners=True)
+            return x
+        
+        # LIP
+        if task == 1:
+            x = self.final2(x)
+            x = F.upsample(input=x, size=x_size[2:], mode='bilinear', align_corners=True)
+            return x
+        
+        # Human (one image has both two masks)
+        if task == 2:
+            x1 = self.final1(x)
+            x1 = F.upsample(input=x1, size=x_size[2:], mode='bilinear', align_corners=True)
+            x2 = self.final1(x)
+            x2 = F.upsample(input=x2, size=x_size[2:], mode='bilinear', align_corners=True)
+            return x1, x2
 
 class SUNets(nn.Module):
     def __init__(self, in_dim, start_planes=16, filters_base=64, num_classes=1000, depth=1, dprob=1e-7, output_stride='32'):
