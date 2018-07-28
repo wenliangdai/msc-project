@@ -40,6 +40,17 @@ def get_model(name, n_classes, ignore_index=-1, weight=None, output_stride='16',
         model = model(
             num_classes=n_classes,
             pretrained=pretrained)
+    elif 'fcn32resnet' in name:
+        if 'multi' in name:
+            model = _get_model_instance('fcn32resnet_multi')
+            depth = int(name.split('_')[0].split('resnet')[-1])
+        else:
+            model = _get_model_instance('fcn32resnet')
+            depth = int(name.split('resnet')[-1])
+        model = model(
+            num_classes=n_classes,
+            pretrained=pretrained,
+            depth=depth)
     else:
         raise 'Model {} not available'.format(name)
     return model
@@ -49,5 +60,7 @@ def _get_model_instance(name):
         'sunet64': Dilated_sunet64,
         'sunet64_multi': Dilated_sunet64_multi,
         'fcn32vgg': FCN32VGG,
-        'fcn32vgg_multi': FCN32VGG_MULTI
+        'fcn32vgg_multi': FCN32VGG_MULTI,
+        'fcn32resnet': FCN32RESNET,
+        'fcn32resnet_multi': FCN32RESNET_MULTI
     }[name]

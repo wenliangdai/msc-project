@@ -164,7 +164,7 @@ class PASCAL_PARTS_LOADER(Loader):
         return items
 
 class LIP_LOADER(Loader):
-    def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False):
+    def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=256, ignore_index=255, do_transform=False):
         super(LIP_LOADER, self).__init__(
             mode, 
             n_classes, 

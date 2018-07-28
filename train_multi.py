@@ -291,13 +291,6 @@ def train(model, optimizers, criterions, trainloader, epoch, schedulers, data, c
         model.apply(set_bn_eval)
 
     for i, (images, labels, task) in enumerate(trainloader):
-        # total_valid_pixel = float(torch.sum( (labels.data != criterion.ignore_index).long() ))
-
-        # if total_valid_pixel == 0:
-        #     print('epoch {}, task {}: total_valid_pixel is {}'.format(epoch, task, total_valid_pixel))
-        #     bug_counter += 1
-        #     continue
-        
         sbd_index = task == 0
         lip_index = task == 1
 
@@ -369,14 +362,20 @@ def train(model, optimizers, criterions, trainloader, epoch, schedulers, data, c
                 counters[j] -= counter_sizes[j]
 
         # if (i + 1) % args.log_size == 0:
-        #     pickle.dump(images[0].cpu().numpy(),
-        #                 open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_input.p"), "wb"))
-
-        #     pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0), task=task), [2, 0, 1]),
-        #                 open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_output.p"), "wb"))
-
-        #     pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy(), task=task), [2, 0, 1]),
-        #                 open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
+        #     if num_sbd > 0:
+        #         pickle.dump(sbd_images[0].cpu().numpy(),
+        #                     open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_input_sbd.p"), "wb"))
+        #         pickle.dump(np.transpose(data.decode_segmap(sbd_outputs[0].data.cpu().numpy().argmax(0), task=0), [2, 0, 1]),
+        #                     open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_output_sbd.p"), "wb"))
+        #         pickle.dump(np.transpose(data.decode_segmap(sbd_labels[0].cpu().numpy(), task=0), [2, 0, 1]),
+        #                     open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_target_sbd.p"), "wb"))
+        #     if num_lip > 0:
+        #         pickle.dump(lip_images[0].cpu().numpy(),
+        #                     open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_input_lip.p"), "wb"))
+        #         pickle.dump(np.transpose(data.decode_segmap(lip_outputs[0].data.cpu().numpy().argmax(0), task=1), [2, 0, 1]),
+        #                     open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_output_lip.p"), "wb"))
+        #         pickle.dump(np.transpose(data.decode_segmap(lip_labels[0].cpu().numpy(), task=1), [2, 0, 1]),
+        #                     open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_target_lip.p"), "wb"))
 
 def val(model, criterions, valloader, epoch, data):
     global l_avg_test, totalclasswise_pixel_acc_test, totalclasswise_gtpixels_test, totalclasswise_predpixels_test
