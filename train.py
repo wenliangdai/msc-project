@@ -236,7 +236,6 @@ def main(args):
 
         # save the best model
         this_mIoU = np.mean(totalclasswise_pixel_acc_test / (totalclasswise_gtpixels_test + totalclasswise_predpixels_test - totalclasswise_pixel_acc_test), axis=1)[0]
-        print('Val mIoU = {}'.format(this_mIoU))
         if this_mIoU > best_mIoU:
             if best_mIoU > 0:
                 os.remove(os.path.join(ROOT, RESULT, "{}_{}_{}_{}_best.pkl".format(args.arch, args.dataset, best_epoch, float2str(best_mIoU))))
@@ -246,6 +245,9 @@ def main(args):
             torch.save(model, os.path.join(ROOT, RESULT, "{}_{}_{}_{}_best.pkl".format(args.arch, args.dataset, best_epoch, float2str(best_mIoU))))
             torch.save({'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict()},
                        os.path.join(ROOT, RESULT, "{}_{}_{}_{}_optimizer_best.pkl".format(args.arch, args.dataset, best_epoch, float2str(best_mIoU))))
+
+        train_mIoU = np.mean(totalclasswise_pixel_acc / (totalclasswise_gtpixels + totalclasswise_predpixels - totalclasswise_pixel_acc), axis=1)[0]
+        print('Train mIoU = {}, Val mIoU = {}'.format(train_mIoU, this_mIoU))
 
 # Incase one want to freeze BN params
 def set_bn_eval(m):
