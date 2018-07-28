@@ -142,10 +142,12 @@ class FCN32RESNET(nn.Module):
             resnet = models.resnet152(pretrained=pretrained)
         else:
             raise TypeError('Invalid Resnet depth')
-        features, classifier = list(resnet.features.children()), list(resnet.classifier.children())
+
+        features = resnet.modules()
+        features = [*features][0:-1] # remove the original 1000-dimension Linear layer
 
         for f in features:
-            if 'MaxPool' in f.__class__.__name__:
+            if 'MaxPool' in f.__class__.__name__ or 'AvgPool' in f.__class__.__name__:
                 f.ceil_mode = True
             elif 'ReLU' in f.__class__.__name__:
                 f.inplace = True
@@ -184,10 +186,12 @@ class FCN32RESNET_MULTI(nn.Module):
             resnet = models.resnet152(pretrained=pretrained)
         else:
             raise TypeError('Invalid Resnet depth')
-        features, classifier = list(resnet.features.children()), list(resnet.classifier.children())
+            
+        features = resnet.modules()
+        features = [*features][0:-1] # remove the original 1000-dimension Linear layer
 
         for f in features:
-            if 'MaxPool' in f.__class__.__name__:
+            if 'MaxPool' in f.__class__.__name__ or 'AvgPool' in f.__class__.__name__:
                 f.ceil_mode = True
             elif 'ReLU' in f.__class__.__name__:
                 f.inplace = True
