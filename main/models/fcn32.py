@@ -150,7 +150,7 @@ class FCN32RESNET(nn.Module):
             elif 'ReLU' in f.__class__.__name__:
                 f.inplace = True
 
-        self.features5 = nn.Sequential(*features)
+        self.features = nn.Sequential(*features)
 
         final = nn.Conv2d(512, num_classes, kernel_size=1)
         final.weight.data.zero_()
@@ -164,7 +164,7 @@ class FCN32RESNET(nn.Module):
     
     def forward(self, x):
         this_shape = x.size()
-        x = self.features5(x)
+        x = self.features(x)
         x = self.final(x)
         x = F.upsample(input=x, size=this_shape[2:], mode='bilinear', align_corners=True)
         return x
@@ -192,7 +192,7 @@ class FCN32RESNET_MULTI(nn.Module):
             elif 'ReLU' in f.__class__.__name__:
                 f.inplace = True
 
-        self.features5 = nn.Sequential(*features)
+        self.features = nn.Sequential(*features)
 
         final1 = nn.Conv2d(512, num_classes[0], kernel_size=1)
         final1.weight.data.zero_()
@@ -216,7 +216,7 @@ class FCN32RESNET_MULTI(nn.Module):
     
     def forward(self, x, task):
         this_shape = x.size()
-        x = self.features5(x)
+        x = self.features(x)
         x = self.final1(x) if task == 0 else self.final2(x)
         x = F.upsample(input=x, size=this_shape[2:], mode='bilinear', align_corners=True)
         return x
