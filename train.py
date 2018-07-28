@@ -260,59 +260,42 @@ def train(model, optimizer, criterion, trainloader, epoch, scheduler, data):
     global steps
 
     model.train()
-    
-    if args.freeze:
-        model.apply(set_bn_eval)
 
     for i, (images, labels) in enumerate(trainloader):
         images = images.to(device)
         labels = labels.to(device)
-
-        if i % args.iter_size == 0:
-            optimizer.zero_grad()
         
         outputs = model(images)
         loss = criterion(outputs, labels)
         
-        total_valid_pixel = torch.sum(labels.data != criterion.ignore_index)
-        classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([outputs], labels, data.n_classes)
-
-        total_valid_pixel = torch.FloatTensor([total_valid_pixel]).to(device)
-        classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc]).to(device)
-        classwise_gtpixels = torch.FloatTensor([classwise_gtpixels]).to(device)
-        classwise_predpixels = torch.FloatTensor([classwise_predpixels]).to(device)
-
-        total_valid_pixel = float(total_valid_pixel.sum(0).data.cpu().numpy())
+        total_valid_pixel = float((labels.data != criterion.ignore_index).long().sum())
 
         total_loss = loss.sum()
         total_loss = total_loss / float(total_valid_pixel)
-        total_loss = total_loss / float(args.iter_size)
         total_loss.backward()
 
-        if i % args.iter_size == 0:
-            optimizer.step()
+        classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([outputs], labels, data.n_classes)
+        classwise_pixel_acc = torch.FloatTensor(classwise_pixel_acc)
+        classwise_gtpixels = torch.FloatTensor(classwise_gtpixels)
+        classwise_predpixels = torch.FloatTensor(classwise_predpixels)
 
         l_avg += loss.sum().data.cpu().numpy()
         steps += total_valid_pixel
-        totalclasswise_pixel_acc += classwise_pixel_acc.sum(0).data.cpu().numpy()
-        totalclasswise_gtpixels += classwise_gtpixels.sum(0).data.cpu().numpy()
-        totalclasswise_predpixels += classwise_predpixels.sum(0).data.cpu().numpy()
+        totalclasswise_pixel_acc += classwise_pixel_acc.numpy()
+        totalclasswise_gtpixels += classwise_gtpixels.numpy()
+        totalclasswise_predpixels += classwise_predpixels.numpy()
 
-        # if (i + 1) % args.epoch_log_size == 0:
-        #     print("Epoch [%d/%d] Loss: %.4f" % (epoch + 1, args.epochs, loss.sum().item()))
+        optimizer.step()
+        optimizer.zero_grad()
+        scheduler.step()
 
-        if (i + 1) % args.iter_size == 0:
-            scheduler.step()
-
-        if (i + 1) % args.log_size == 0:
-            pickle.dump(images[0].cpu().numpy(),
-                        open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_input.p"), "wb"))
-
-            pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0)), [2, 0, 1]),
-                        open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_output.p"), "wb"))
-
-            pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy()), [2, 0, 1]),
-                        open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
+        # if (i + 1) % args.log_size == 0:
+        #     pickle.dump(images[0].cpu().numpy(),
+        #                 open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_input.p"), "wb"))
+        #     pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0)), [2, 0, 1]),
+        #                 open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_output.p"), "wb"))
+        #     pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy()), [2, 0, 1]),
+        #                 open(os.path.join(ROOT, RESULT, "saved_train_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
 
 def val(model, criterion, valloader, epoch, data):
     global l_avg_test, totalclasswise_pixel_acc_test, totalclasswise_gtpixels_test, totalclasswise_predpixels_test
@@ -328,31 +311,25 @@ def val(model, criterion, valloader, epoch, data):
             outputs = model(images)
             loss = criterion(outputs, labels)
 
-            total_valid_pixel = torch.sum(labels.data != criterion.ignore_index)
+            total_valid_pixel = total_valid_pixel = float((labels.data != criterion.ignore_index).long().sum())
             classwise_pixel_acc, classwise_gtpixels, classwise_predpixels = prediction_stat([outputs], labels, data.n_classes)
-
-            total_valid_pixel = torch.FloatTensor([total_valid_pixel]).to(device)
-            classwise_pixel_acc = torch.FloatTensor([classwise_pixel_acc]).to(device)
-            classwise_gtpixels = torch.FloatTensor([classwise_gtpixels]).to(device)
-            classwise_predpixels = torch.FloatTensor([classwise_predpixels]).to(device)
-
-            total_valid_pixel = float(total_valid_pixel.sum(0).data.cpu().numpy())
+            classwise_pixel_acc = torch.FloatTensor(classwise_pixel_acc)
+            classwise_gtpixels = torch.FloatTensor(classwise_gtpixels)
+            classwise_predpixels = torch.FloatTensor(classwise_predpixels)
 
             l_avg_test += loss.sum().data.cpu().numpy()
             steps_test += total_valid_pixel
-            totalclasswise_pixel_acc_test += classwise_pixel_acc.sum(0).data.cpu().numpy()
-            totalclasswise_gtpixels_test += classwise_gtpixels.sum(0).data.cpu().numpy()
-            totalclasswise_predpixels_test += classwise_predpixels.sum(0).data.cpu().numpy()
+            totalclasswise_pixel_acc_test += classwise_pixel_acc.numpy()
+            totalclasswise_gtpixels_test += classwise_gtpixels.numpy()
+            totalclasswise_predpixels_test += classwise_predpixels.numpy()
 
-            if (i + 1) % 100 == 0:
-                pickle.dump(images[0].cpu().numpy(),
-                            open(os.path.join(ROOT, RESULT, "saved_val_images/" + str(epoch) + "_" + str(i) + "_input.p"), "wb"))
-
-                pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0)), [2, 0, 1]),
-                            open(os.path.join(ROOT, RESULT, "saved_val_images/" + str(epoch) + "_" + str(i) + "_output.p"), "wb"))
-
-                pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy()), [2, 0, 1]),
-                            open(os.path.join(ROOT, RESULT, "saved_val_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
+            # if (i + 1) % 100 == 0:
+            #     pickle.dump(images[0].cpu().numpy(),
+            #                 open(os.path.join(ROOT, RESULT, "saved_val_images/" + str(epoch) + "_" + str(i) + "_input.p"), "wb"))
+            #     pickle.dump(np.transpose(data.decode_segmap(outputs[0].data.cpu().numpy().argmax(0)), [2, 0, 1]),
+            #                 open(os.path.join(ROOT, RESULT, "saved_val_images/" + str(epoch) + "_" + str(i) + "_output.p"), "wb"))
+            #     pickle.dump(np.transpose(data.decode_segmap(labels[0].cpu().numpy()), [2, 0, 1]),
+            #                 open(os.path.join(ROOT, RESULT, "saved_val_images/" + str(epoch) + "_" + str(i) + "_target.p"), "wb"))
 
     
 
