@@ -143,7 +143,7 @@ class FCN32RESNET(nn.Module):
         else:
             raise TypeError('Invalid Resnet depth')
 
-        features = resnet.modules()
+        features = resnet.children()
         features = [*features][0:-1] # remove the original 1000-dimension Linear layer
 
         for f in features:
@@ -186,8 +186,8 @@ class FCN32RESNET_MULTI(nn.Module):
             resnet = models.resnet152(pretrained=pretrained)
         else:
             raise TypeError('Invalid Resnet depth')
-            
-        features = resnet.modules()
+
+        features = resnet.children()
         features = [*features][0:-1] # remove the original 1000-dimension Linear layer
 
         for f in features:
