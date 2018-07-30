@@ -143,8 +143,9 @@ class FCN32RESNET(nn.Module):
         else:
             raise TypeError('Invalid Resnet depth')
 
-        features = resnet.children()
-        features = [*features][0:-1] # remove the original 1000-dimension Linear layer
+        features = [*resnet.children()]
+        num_channels = features[-1].in_features
+        features = features[0:-1] # remove the original 1000-dimension Linear layer
 
         for f in features:
             if 'MaxPool' in f.__class__.__name__ or 'AvgPool' in f.__class__.__name__:
@@ -154,7 +155,7 @@ class FCN32RESNET(nn.Module):
 
         self.features = nn.Sequential(*features)
 
-        final = nn.Conv2d(512, num_classes, kernel_size=1)
+        final = nn.Conv2d(num_channels, num_classes, kernel_size=1)
         final.weight.data.zero_()
         final.bias.data.zero_()
         upscore = nn.ConvTranspose2d(num_classes, num_classes, kernel_size=64, stride=32, bias=False)
@@ -176,6 +177,7 @@ class FCN32RESNET_MULTI(nn.Module):
         super(FCN32RESNET_MULTI, self).__init__()
         if depth == 18:
             resnet = models.resnet18(pretrained=pretrained)
+            channel
         elif depth == 34:
             resnet = models.resnet34(pretrained=pretrained)
         elif depth == 50:
@@ -187,8 +189,9 @@ class FCN32RESNET_MULTI(nn.Module):
         else:
             raise TypeError('Invalid Resnet depth')
 
-        features = resnet.children()
-        features = [*features][0:-1] # remove the original 1000-dimension Linear layer
+        features = [*resnet.children()]
+        num_channels = features[-1].in_features
+        features = features[0:-1] # remove the original 1000-dimension Linear layer
 
         for f in features:
             if 'MaxPool' in f.__class__.__name__ or 'AvgPool' in f.__class__.__name__:
@@ -198,7 +201,7 @@ class FCN32RESNET_MULTI(nn.Module):
 
         self.features = nn.Sequential(*features)
 
-        final1 = nn.Conv2d(512, num_classes[0], kernel_size=1)
+        final1 = nn.Conv2d(num_channels, num_classes[0], kernel_size=1)
         final1.weight.data.zero_()
         final1.bias.data.zero_()
         upscore1 = nn.ConvTranspose2d(num_classes[0], num_classes[0], kernel_size=64, stride=32, bias=False)
@@ -208,7 +211,7 @@ class FCN32RESNET_MULTI(nn.Module):
             ('tconv7', upscore1)
         ]))
 
-        final2 = nn.Conv2d(512, num_classes[1], kernel_size=1)
+        final2 = nn.Conv2d(num_channels, num_classes[1], kernel_size=1)
         final2.weight.data.zero_()
         final2.bias.data.zero_()
         upscore2 = nn.ConvTranspose2d(num_classes[1], num_classes[1], kernel_size=64, stride=32, bias=False)
