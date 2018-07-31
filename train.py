@@ -74,6 +74,8 @@ def main(args):
     n_trainsamples = len(traindata)
     n_iters_per_epoch = np.ceil(n_trainsamples / float(args.batch_size * args.iter_size))
 
+    print('#Training data = {}'.format(n_trainsamples))
+
     # Setup Model
     model = get_model(
         name=args.arch, 
