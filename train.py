@@ -53,9 +53,21 @@ def main(args):
     ])
     target_transform = extended_transforms.MaskToTensor()
 
-    traindata = data_loader('train', n_classes=args.n_classes, transform=input_transform, target_transform=target_transform, do_transform=True)
+    traindata = data_loader(
+        'train', 
+        n_classes=args.n_classes, 
+        transform=input_transform, 
+        target_transform=target_transform, 
+        do_transform=True, 
+        portion=args.data_portion
+    )
     trainloader = data.DataLoader(traindata, batch_size=args.batch_size, num_workers=1, shuffle=True)
-    valdata = data_loader('val', n_classes=args.n_classes, transform=input_transform, target_transform=target_transform)
+    valdata = data_loader(
+        'val', 
+        n_classes=args.n_classes, 
+        transform=input_transform, 
+        target_transform=target_transform
+    )
     valloader = data.DataLoader(valdata, batch_size=args.batch_size, num_workers=1, shuffle=False)
 
     n_classes = traindata.n_classes
@@ -343,6 +355,8 @@ if __name__ == '__main__':
     parser.add_argument('--best_model_path', help='Path to the saved best model', type=str)
     parser.add_argument('--dataset', nargs='?', type=str, default='sbd',
                         help='Dataset to use [\'sbd, coco, cityscapes etc\']')
+    parser.add_argument('--data_portion', nargs='?', type=float, default=1.0,
+                        help='Portion of dataset to use')
     parser.add_argument('--img_rows', nargs='?', type=int, default=512,
                         help='Height of the input image')
     parser.add_argument('--img_cols', nargs='?', type=int, default=512,
