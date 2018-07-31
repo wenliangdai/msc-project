@@ -30,7 +30,7 @@ class Loader(data.Dataset):
 
         if portion != 1:
             imglen = len(self.imgs)
-            imglen = np.ceil(imglen * portion)
+            imglen = int(np.ceil(imglen * portion))
             self.imgs = self.imgs[0:imglen]
 
     def __getitem__(self, index):
