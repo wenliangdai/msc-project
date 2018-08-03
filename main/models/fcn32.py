@@ -130,6 +130,7 @@ class FCN32VGG_MULTI(nn.Module):
 class FCN32RESNET(nn.Module):
     def __init__(self, num_classes=21, pretrained=False, depth=18):
         super(FCN32RESNET, self).__init__()
+        print('pretrained = {}, depth = {}'.format(pretrained, depth))
         if depth == 18:
             resnet = models.resnet18(pretrained=pretrained)
         elif depth == 34:
@@ -177,7 +178,6 @@ class FCN32RESNET_MULTI(nn.Module):
         super(FCN32RESNET_MULTI, self).__init__()
         if depth == 18:
             resnet = models.resnet18(pretrained=pretrained)
-            channel
         elif depth == 34:
             resnet = models.resnet34(pretrained=pretrained)
         elif depth == 50:
