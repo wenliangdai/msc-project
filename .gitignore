@@ -1,3 +1,4 @@
+*.ipynb
 MULTI.*
 MULTI_PRETRAINED.*
 *.tar
