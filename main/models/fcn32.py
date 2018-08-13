@@ -34,34 +34,28 @@ class FCN32VGG(nn.Module):
         param7['weight'] = param7['weight'].view(4096, 4096, 1, 1)
         fc7.load_state_dict(param7, strict=True)
 
-        score_fr = nn.Conv2d(4096, num_classes, kernel_size=1)
-        score_fr.weight.data.zero_()
-        score_fr.bias.data.zero_()
-        self.score_fr = nn.Sequential(
-            fc6, 
-            nn.ReLU(inplace=True), 
-            nn.Dropout(), 
-            fc7, 
-            nn.ReLU(inplace=True), 
-            nn.Dropout(), 
-            score_fr
-        )
-
-        # Upsampling
-        self.upscore = nn.ConvTranspose2d(num_classes, num_classes, kernel_size=64, stride=32, bias=False)
-        self.upscore.weight.data.copy_(get_upsampling_weight(num_classes, num_classes, 64))
-    
-        # print(vgg)
+        final = nn.Conv2d(4096, num_classes, kernel_size=1)
+        final.weight.data.zero_()
+        final.bias.data.zero_()
+        upscore = nn.ConvTranspose2d(num_classes, num_classes, kernel_size=64, stride=32, bias=False)
+        upscore.weight.data.copy_(get_upsampling_weight(num_classes, num_classes, 64))
+        self.final = nn.Sequential(OrderedDict([
+            ('conv0', fc6), 
+            ('relu1', nn.ReLU(inplace=True)), 
+            ('dropout2', nn.Dropout()), 
+            ('conv3', fc7), 
+            ('relu4', nn.ReLU(inplace=True)), 
+            ('dropout5', nn.Dropout()), 
+            ('conv6', final),
+            ('tconv7', upscore)
+        ]))
     
     def forward(self, x):
         this_shape = x.size()
-        conv_out = self.features5(x)
-        score_out = self.score_fr(conv_out)
-        upsampling_out = self.upscore(score_out)
-        # .contiguous() makes sure the tensor is stored in a contiguous chunk of memory
-        # return upsampling_out[:, :, 19:(19 + this_shape[2]), 19:(19 + this_shape[3])].contiguous()
-        upsampling_out = F.upsample(input=upsampling_out, size=this_shape[2:], mode='bilinear', align_corners=True)
-        return upsampling_out
+        x = self.features5(x)
+        x = self.final(x)
+        x = F.upsample(input=x, size=this_shape[2:], mode='bilinear', align_corners=True)
+        return x
 
 
 class FCN32VGG_MULTI(nn.Module):
@@ -128,6 +122,108 @@ class FCN32VGG_MULTI(nn.Module):
     def forward(self, x, task):
         this_shape = x.size()
         x = self.features5(x)
+        x = self.final1(x) if task == 0 else self.final2(x)
+        x = F.upsample(input=x, size=this_shape[2:], mode='bilinear', align_corners=True)
+        return x
+
+
+class FCN32RESNET(nn.Module):
+    def __init__(self, num_classes=21, pretrained=False, depth=18):
+        super(FCN32RESNET, self).__init__()
+        print('pretrained = {}, depth = {}'.format(pretrained, depth))
+        if depth == 18:
+            resnet = models.resnet18(pretrained=pretrained)
+        elif depth == 34:
+            resnet = models.resnet34(pretrained=pretrained)
+        elif depth == 50:
+            resnet = models.resnet50(pretrained=pretrained)
+        elif depth == 101:
+            resnet = models.resnet101(pretrained=pretrained)
+        elif depth == 152:
+            resnet = models.resnet152(pretrained=pretrained)
+        else:
+            raise TypeError('Invalid Resnet depth')
+
+        features = [*resnet.children()]
+        num_channels = features[-1].in_features
+        features = features[0:-1] # remove the original 1000-dimension Linear layer
+
+        for f in features:
+            if 'MaxPool' in f.__class__.__name__ or 'AvgPool' in f.__class__.__name__:
+                f.ceil_mode = True
+            elif 'ReLU' in f.__class__.__name__:
+                f.inplace = True
+
+        self.features = nn.Sequential(*features)
+
+        final = nn.Conv2d(num_channels, num_classes, kernel_size=1)
+        final.weight.data.zero_()
+        final.bias.data.zero_()
+        upscore = nn.ConvTranspose2d(num_classes, num_classes, kernel_size=64, stride=32, bias=False)
+        upscore.weight.data.copy_(get_upsampling_weight(num_classes, num_classes, 64))
+        self.final = nn.Sequential(OrderedDict([
+            ('conv6', final),
+            ('tconv7', upscore)
+        ]))
+    
+    def forward(self, x):
+        this_shape = x.size()
+        x = self.features(x)
+        x = self.final(x)
+        x = F.upsample(input=x, size=this_shape[2:], mode='bilinear', align_corners=True)
+        return x
+
+class FCN32RESNET_MULTI(nn.Module):
+    def __init__(self, num_classes=[21,20], pretrained=False, depth=18):
+        super(FCN32RESNET_MULTI, self).__init__()
+        if depth == 18:
+            resnet = models.resnet18(pretrained=pretrained)
+        elif depth == 34:
+            resnet = models.resnet34(pretrained=pretrained)
+        elif depth == 50:
+            resnet = models.resnet50(pretrained=pretrained)
+        elif depth == 101:
+            resnet = models.resnet101(pretrained=pretrained)
+        elif depth == 152:
+            resnet = models.resnet152(pretrained=pretrained)
+        else:
+            raise TypeError('Invalid Resnet depth')
+
+        features = [*resnet.children()]
+        num_channels = features[-1].in_features
+        features = features[0:-1] # remove the original 1000-dimension Linear layer
+
+        for f in features:
+            if 'MaxPool' in f.__class__.__name__ or 'AvgPool' in f.__class__.__name__:
+                f.ceil_mode = True
+            elif 'ReLU' in f.__class__.__name__:
+                f.inplace = True
+
+        self.features = nn.Sequential(*features)
+
+        final1 = nn.Conv2d(num_channels, num_classes[0], kernel_size=1)
+        final1.weight.data.zero_()
+        final1.bias.data.zero_()
+        upscore1 = nn.ConvTranspose2d(num_classes[0], num_classes[0], kernel_size=64, stride=32, bias=False)
+        upscore1.weight.data.copy_(get_upsampling_weight(num_classes[0], num_classes[0], 64))
+        self.final1 = nn.Sequential(OrderedDict([
+            ('conv6', final1),
+            ('tconv7', upscore1)
+        ]))
+
+        final2 = nn.Conv2d(num_channels, num_classes[1], kernel_size=1)
+        final2.weight.data.zero_()
+        final2.bias.data.zero_()
+        upscore2 = nn.ConvTranspose2d(num_classes[1], num_classes[1], kernel_size=64, stride=32, bias=False)
+        upscore2.weight.data.copy_(get_upsampling_weight(num_classes[1], num_classes[1], 64))
+        self.final2 = nn.Sequential(OrderedDict([
+            ('conv6', final2),
+            ('tconv7', upscore2)
+        ]))
+    
+    def forward(self, x, task):
+        this_shape = x.size()
+        x = self.features(x)
         x = self.final1(x) if task == 0 else self.final2(x)
         x = F.upsample(input=x, size=this_shape[2:], mode='bilinear', align_corners=True)
         return x

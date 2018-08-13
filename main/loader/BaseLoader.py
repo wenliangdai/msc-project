@@ -14,7 +14,7 @@ from torchvision.transforms import Compose, Normalize, Resize, ToTensor
 
 
 class Loader(data.Dataset):
-    def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False):
+    def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False, portion=1):
         super(Loader, self).__init__()
         self.imgs = self.preprocess(mode=mode)
         if len(self.imgs) == 0:
@@ -27,6 +27,11 @@ class Loader(data.Dataset):
         self.do_transform = do_transform
         self.filler = [0, 0, 0]
         self.n_classes = n_classes
+
+        if portion != 1:
+            imglen = len(self.imgs)
+            imglen = int(np.ceil(imglen * portion))
+            self.imgs = self.imgs[0:imglen]
 
     def __getitem__(self, index):
         raise NotImplementedError

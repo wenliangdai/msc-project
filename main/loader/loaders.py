@@ -17,7 +17,7 @@ sys.path.append('/home/wenlidai/sunets-reproduce/main/loader')
 from BaseLoader import Loader
 
 class SEMSEG_LOADER(Loader):
-    def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False):
+    def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False, portion=1):
         super(SEMSEG_LOADER, self).__init__(
             mode, 
             n_classes, 
@@ -25,7 +25,7 @@ class SEMSEG_LOADER(Loader):
             target_transform, 
             img_size, 
             ignore_index, 
-            do_transform)
+            do_transform, portion=portion)
 
     def __getitem__(self, index):
         img = None
@@ -111,7 +111,7 @@ class SEMSEG_LOADER(Loader):
         return items
 
 class PASCAL_PARTS_LOADER(Loader):
-    def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False):
+    def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False, portion=1):
         super(PASCAL_PARTS_LOADER, self).__init__(
             mode, 
             n_classes, 
@@ -119,7 +119,7 @@ class PASCAL_PARTS_LOADER(Loader):
             target_transform, 
             img_size, 
             ignore_index, 
-            do_transform)
+            do_transform, portion=portion)
 
     def __getitem__(self, index):
         img_path, mask_path = self.imgs[index]
@@ -164,7 +164,7 @@ class PASCAL_PARTS_LOADER(Loader):
         return items
 
 class LIP_LOADER(Loader):
-    def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False):
+    def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=256, ignore_index=255, do_transform=False, portion=1):
         super(LIP_LOADER, self).__init__(
             mode, 
             n_classes, 
@@ -172,7 +172,7 @@ class LIP_LOADER(Loader):
             target_transform, 
             img_size, 
             ignore_index, 
-            do_transform)
+            do_transform, portion=portion)
 
     def __getitem__(self, index):
         img_path, mask_path = self.imgs[index]
@@ -223,7 +223,7 @@ class LIP_LOADER(Loader):
         return items[0:11716]
 
 class PASCAL_HUMAN_SEMSEG_LOADER(Loader):
-    def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False):
+    def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False, portion=1):
         super(PASCAL_HUMAN_SEMSEG_LOADER, self).__init__(
             mode, 
             n_classes, 
@@ -231,7 +231,7 @@ class PASCAL_HUMAN_SEMSEG_LOADER(Loader):
             target_transform, 
             img_size, 
             ignore_index, 
-            do_transform)
+            do_transform, portion=portion)
     
     def __getitem__(self, index):
         img_path, mask_path = self.imgs[index]
@@ -288,7 +288,7 @@ class PASCAL_HUMAN_SEMSEG_LOADER(Loader):
         return items
 
 class PASCAL_HUMAN_PARTS_LOADER(Loader):
-    def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False):
+    def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False, portion=1):
         super(PASCAL_HUMAN_PARTS_LOADER, self).__init__(
             mode, 
             n_classes, 
@@ -296,7 +296,7 @@ class PASCAL_HUMAN_PARTS_LOADER(Loader):
             target_transform, 
             img_size, 
             ignore_index, 
-            do_transform)
+            do_transform, portion=portion)
     
     def __getitem__(self, index):
         img_path, mask_path = self.imgs[index]
@@ -351,7 +351,7 @@ class PASCAL_HUMAN_PARTS_LOADER(Loader):
         return items
 
 class PASCAL_HUMAN_LOADER(Loader):
-    def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False):
+    def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False, portion=1):
         super(PASCAL_HUMAN_LOADER, self).__init__(
             mode, 
             n_classes, 
@@ -359,7 +359,7 @@ class PASCAL_HUMAN_LOADER(Loader):
             target_transform, 
             img_size, 
             ignore_index, 
-            do_transform)
+            do_transform, portion=portion)
     
     def __getitem__(self, index):
         img_path, sbd_mask_path, lip_mask_path = self.imgs[index]
@@ -451,7 +451,7 @@ class PASCAL_HUMAN_LOADER(Loader):
         return items
 
 class SBD_LIP_LOADER(Loader):
-    def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False):
+    def __init__(self, mode, n_classes, transform=None, target_transform=None, img_size=512, ignore_index=255, do_transform=False, portion=1):
         self.sbd_loader = SEMSEG_LOADER(
             mode, 
             n_classes[0], 
@@ -459,7 +459,7 @@ class SBD_LIP_LOADER(Loader):
             target_transform, 
             img_size, 
             ignore_index, 
-            do_transform)
+            do_transform, portion=portion)
         self.lip_loader = LIP_LOADER(
             mode, 
             n_classes[1], 
@@ -467,7 +467,7 @@ class SBD_LIP_LOADER(Loader):
             target_transform, 
             img_size, 
             ignore_index, 
-            do_transform)
+            do_transform, portion=portion)
         super(SBD_LIP_LOADER, self).__init__(
             mode, 
             n_classes, 
@@ -475,7 +475,7 @@ class SBD_LIP_LOADER(Loader):
             target_transform, 
             img_size, 
             ignore_index, 
-            do_transform)
+            do_transform, portion=1)
         
     def __getitem__(self, index):
         img_path, mask_path = self.imgs[index]
