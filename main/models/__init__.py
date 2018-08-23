@@ -50,7 +50,8 @@ def get_model(name, n_classes, ignore_index=-1, weight=None, output_stride='16',
         model = model(
             num_classes=n_classes,
             pretrained=pretrained,
-            depth=depth)
+            depth=depth,
+            dprob=dprob)
     else:
         raise 'Model {} not available'.format(name)
     return model
