@@ -13,7 +13,7 @@ from torch.utils import data
 from main import get_data_path
 from torchvision.transforms import Compose, Normalize, Resize, ToTensor
 
-sys.path.append('/home/wenlidai/sunets-reproduce/main/loader')
+sys.path.append('/home/wenlidai/msc-project/main/loader')
 from BaseLoader import Loader
 
 class SEMSEG_LOADER(Loader):

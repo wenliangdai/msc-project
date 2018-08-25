@@ -21,7 +21,7 @@ from main.models import get_model
 from utils import dotdict, float2str
 
 # paths
-ROOT = '/home/wenlidai/sunets-reproduce/'
+ROOT = '/home/wenlidai/msc-project/'
 RESULT = 'results'
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
