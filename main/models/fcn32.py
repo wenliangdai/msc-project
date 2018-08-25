@@ -155,21 +155,21 @@ class FCN32RESNET(nn.Module):
                 f.inplace = True
 
         # Add Dropout module after each conv layer for torchvision.models.resnet
-        modified_features = []
-        for f in features:
-            if f.__class__.__name__ == 'Sequential':
-                new_seq = []
-                for ff in f.children():
-                    list_modules = [*ff.children()]
-                    for module in list_modules:
-                        new_seq.append(module)
-                        if 'Conv' in module.__class__.__name__:
-                            new_seq.append(nn.Dropout(p=dprob))
-                modified_features.append(nn.Sequential(*new_seq))
-            else:
-                modified_features.append(f)
+        # modified_features = []
+        # for f in features:
+        #     if f.__class__.__name__ == 'Sequential':
+        #         new_seq = []
+        #         for ff in f.children():
+        #             list_modules = [*ff.children()]
+        #             for module in list_modules:
+        #                 new_seq.append(module)
+        #                 if 'Conv' in module.__class__.__name__:
+        #                     new_seq.append(nn.Dropout(p=dprob))
+        #         modified_features.append(nn.Sequential(*new_seq))
+        #     else:
+        #         modified_features.append(f)
 
-        self.features = nn.Sequential(*modified_features)
+        self.features = nn.Sequential(*features)
 
         final = nn.Conv2d(num_channels, num_classes, kernel_size=1)
         final.weight.data.zero_()
