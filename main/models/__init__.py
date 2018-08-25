@@ -17,7 +17,7 @@ def init_params(net):
             if m.bias.data is not None:
                 init.constant_(m.bias, 0)
 
-def get_model(name, n_classes, ignore_index=-1, weight=None, output_stride='16', pretrained=False, momentum_bn=0.01, dprob=1e-7):
+def get_model(name, n_classes, ignore_index=-1, weight=None, output_stride='16', pretrained=False, momentum_bn=0.01, dprob=0):
     if name in ['sunet64', 'sunet64_multi']:
         model = _get_model_instance(name)
         model = model(
