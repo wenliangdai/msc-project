@@ -13,7 +13,7 @@ if [[ "$1" == '--' ]]; then shift; fi
 
 echo "Getting ${name}..."
 
-root="/home/wenlidai/sunets-reproduce/"
+root="/home/wenlidai/msc-project/"
 path="${root}${name}"
 
 if [ ! -d $name ]; then

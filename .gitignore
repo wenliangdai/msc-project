@@ -1,4 +1,4 @@
-*.ipynb
+visualisation.ipynb
 MULTI.*
 MULTI_PRETRAINED.*
 *.tar

@@ -128,7 +128,7 @@ class FCN32VGG_MULTI(nn.Module):
 
 
 class FCN32RESNET(nn.Module):
-    def __init__(self, num_classes=21, pretrained=False, depth=18):
+    def __init__(self, num_classes=21, pretrained=False, depth=18, dprob=0.1):
         super(FCN32RESNET, self).__init__()
         print('pretrained = {}, depth = {}'.format(pretrained, depth))
         if depth == 18:
@@ -153,6 +153,21 @@ class FCN32RESNET(nn.Module):
                 f.ceil_mode = True
             elif 'ReLU' in f.__class__.__name__:
                 f.inplace = True
+
+        # Add Dropout module after each conv layer for torchvision.models.resnet
+        # modified_features = []
+        # for f in features:
+        #     if f.__class__.__name__ == 'Sequential':
+        #         new_seq = []
+        #         for ff in f.children():
+        #             list_modules = [*ff.children()]
+        #             for module in list_modules:
+        #                 new_seq.append(module)
+        #                 if 'Conv' in module.__class__.__name__:
+        #                     new_seq.append(nn.Dropout(p=dprob))
+        #         modified_features.append(nn.Sequential(*new_seq))
+        #     else:
+        #         modified_features.append(f)
 
         self.features = nn.Sequential(*features)
 

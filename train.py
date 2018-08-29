@@ -21,7 +21,7 @@ from main.models import get_model
 from utils import dotdict, float2str
 
 # paths
-ROOT = '/home/wenlidai/sunets-reproduce/'
+ROOT = '/home/wenlidai/msc-project/'
 RESULT = 'results'
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -375,7 +375,7 @@ if __name__ == '__main__':
                         help='number of batches per weight updates')
     parser.add_argument('--log_size', type=int, default=400,
                         help='iteration period of logging segmented images')
-    parser.add_argument('--dprob', nargs='?', type=float, default=1e-7,
+    parser.add_argument('--dprob', nargs='?', type=float, default=0,
                         help='Dropout probability')
     parser.add_argument('--momentum', nargs='?', type=float, default=0.95,
                         help='Momentum for SGD')
@@ -401,7 +401,7 @@ if __name__ == '__main__':
     global args
     args = parser.parse_args()
     
-    RESULT = '{}_{}_{}'.format(RESULT, args.arch, args.dataset)
+    RESULT = '{}_{}_{}_{}'.format(RESULT, args.arch, args.dataset, args.weight_decay)
     if args.pretrained:
         RESULT = RESULT + '_pretrained'
     
