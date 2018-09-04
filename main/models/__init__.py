@@ -63,5 +63,6 @@ def _get_model_instance(name):
         'fcn32vgg': FCN32VGG,
         'fcn32vgg_multi': FCN32VGG_MULTI,
         'fcn32resnet': FCN32RESNET,
-        'fcn32resnet_multi': FCN32RESNET_MULTI
+        'fcn32resnet_multi': FCN32RESNET_MULTI,
+        'fcn32alexnet': FCN32ALEXNET
     }[name]
