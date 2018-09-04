@@ -126,6 +126,57 @@ class FCN32VGG_MULTI(nn.Module):
         x = F.upsample(input=x, size=this_shape[2:], mode='bilinear', align_corners=True)
         return x
 
+class FCN32ALEXNET(nn.Module):
+    def __init__(self, num_classes=21, pretrained=False):
+        super(FCN32ALEXNET, self).__init__()
+        alexnet = models.alexnet(pretrained=pretrained)
+        features, classifier = list(alexnet.features.children()), list(alexnet.classifier.children())
+        
+        # Why pad the input: 
+        # https://github.com/shelhamer/fcn.berkeleyvision.org#frequently-asked-questions
+        # features[0].padding = (100, 100)
+
+        for f in features:
+            if 'MaxPool' in f.__class__.__name__:
+                f.ceil_mode = True
+            elif 'ReLU' in f.__class__.__name__:
+                f.inplace = True
+
+        self.features5 = nn.Sequential(*features)
+
+        # As the shapes are different, we can't use load_state_dict/state_dict directly
+        fc6 = nn.Conv2d(256, 4096, kernel_size=6)
+        param6 = classifier[1].state_dict()
+        param6['weight'] = param6['weight'].view(4096, 256, 6, 6)
+        fc6.load_state_dict(param6, strict=True)
+
+        fc7 = nn.Conv2d(4096, 4096, kernel_size=1)
+        param7 = classifier[4].state_dict()
+        param7['weight'] = param7['weight'].view(4096, 4096, 1, 1)
+        fc7.load_state_dict(param7, strict=True)
+
+        final = nn.Conv2d(4096, num_classes, kernel_size=1)
+        final.weight.data.zero_()
+        final.bias.data.zero_()
+        upscore = nn.ConvTranspose2d(num_classes, num_classes, kernel_size=64, stride=32, bias=False)
+        upscore.weight.data.copy_(get_upsampling_weight(num_classes, num_classes, 64))
+        self.final = nn.Sequential(OrderedDict([
+            ('conv0', fc6), 
+            ('relu1', nn.ReLU(inplace=True)), 
+            ('dropout2', nn.Dropout()), 
+            ('conv3', fc7), 
+            ('relu4', nn.ReLU(inplace=True)), 
+            ('dropout5', nn.Dropout()), 
+            ('conv6', final),
+            ('tconv7', upscore)
+        ]))
+    
+    def forward(self, x):
+        this_shape = x.size()
+        x = self.features5(x)
+        x = self.final(x)
+        x = F.upsample(input=x, size=this_shape[2:], mode='bilinear', align_corners=True)
+        return x
 
 class FCN32RESNET(nn.Module):
     def __init__(self, num_classes=21, pretrained=False, depth=18, dprob=0.1):
