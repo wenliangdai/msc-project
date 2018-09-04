@@ -52,6 +52,11 @@ def get_model(name, n_classes, ignore_index=-1, weight=None, output_stride='16',
             pretrained=pretrained,
             depth=depth,
             dprob=dprob)
+    elif 'fcn32alexnet' in name:
+        model = _get_model_instance(name)
+        model = model(
+            num_classes=n_classes,
+            pretrained=pretrained)
     else:
         raise 'Model {} not available'.format(name)
     return model
